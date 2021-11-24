@@ -1,10 +1,11 @@
-use crate::{error::Error, Shaders};
-use shaderc::{CompileOptions, Compiler, ShaderKind};
-use std::{fs, sync::Arc};
+use crate::{error::Error, shaders::Shaders, vertex::Vertex};
+use cgmath::Vector3;
+use std::sync::Arc;
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},
     command_buffer::{AutoCommandBufferBuilder, SubpassContents},
     device::{physical::PhysicalDevice, Device, DeviceExtensions, Queue},
+    format::Format,
     image::{ImageUsage, SwapchainImage},
     instance::Instance,
     pipeline::{viewport::Viewport, DynamicState, GraphicsPipeline},
@@ -24,22 +25,21 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
+vulkano::impl_vertex!(Vertex, position);
+
 pub type Surface = swapchain::Surface<Window>;
 
 pub struct Engine {
     physical_index: usize,
-    shaders: Arc<Shaders>,
     device: Arc<Device>,
     queue: Arc<Queue>,
     surface: Arc<Surface>,
+    shaders: Arc<Shaders>,
+    pipeline: Arc<GraphicsPipeline>,
 }
 
 impl Engine {
-    pub fn new(
-        physical_index: usize,
-        vertex_path: &String,
-        fragment_path: &String,
-    ) -> Result<Self, Error> {
+    pub fn new(physical_index: usize) -> Result<Self, Error> {
         let req_exts = vulkano_win::required_extensions();
         let instance = Instance::new(None, Version::V1_1, &req_exts, None)?;
         let physical = match PhysicalDevice::from_index(&instance, physical_index) {
@@ -69,52 +69,46 @@ impl Engine {
             Some(queue) => queue,
             None => return Err(Error::NoQueue),
         };
-        let shaders = Self::load_shaders(vertex_path, fragment_path)?;
+        let shaders = Arc::new(Shaders::new(device.clone())?);
+        let render_pass = Arc::new(vulkano::single_pass_renderpass!(device.clone(),
+            attachments: {
+                color: {
+                    load: Clear,
+                    store: Store,
+                    format: Format::R8G8B8A8_UNORM,
+                    samples: 1,
+                }
+            },
+            pass: {
+                color: [color],
+                depth_stencil: {}
+            }
+        )?);
+        let pipeline = Arc::new(
+            GraphicsPipeline::start()
+                .vertex_input_single_buffer::<Vertex>()
+                .vertex_shader(shaders.vertex.main_entry_point(), ())
+                .viewports_dynamic_scissors_irrelevant(1)
+                .fragment_shader(shaders.fragment.main_entry_point(), ())
+                .render_pass(match Subpass::from(render_pass.clone(), 0) {
+                    Some(subpass) => subpass,
+                    None => return Err(Error::NoSubpass),
+                })
+                .build(device.clone())?,
+        );
 
         Ok(Self {
             physical_index,
-            shaders,
             device,
             queue,
             surface,
+            shaders,
+            pipeline,
         })
     }
 
-    fn load_shaders(vertex_path: &String, fragment_path: &String) -> Result<Arc<Shaders>, Error> {
-        let mut compiler = match Compiler::new() {
-            Some(compiler) => compiler,
-            None => return Err(Error::NoShaderCompiler),
-        };
-        let options = match CompileOptions::new() {
-            Some(options) => options,
-            None => return Err(Error::NoShaderCompilerOptions),
-        };
-
-        let vertex_buffer = fs::read_to_string(vertex_path)?;
-        let vertex = compiler
-            .compile_into_spirv(
-                vertex_buffer.as_str(),
-                ShaderKind::Vertex,
-                vertex_path.as_str(),
-                "main",
-                Some(&options),
-            )?
-            .as_binary()
-            .to_vec();
-
-        let fragment_buffer = fs::read_to_string(fragment_path)?;
-        let fragment = compiler
-            .compile_into_spirv(
-                fragment_buffer.as_str(),
-                ShaderKind::Fragment,
-                fragment_path.as_str(),
-                "main",
-                Some(&options),
-            )?
-            .as_binary()
-            .to_vec();
-
-        Ok(Arc::new(Shaders::new(vertex, fragment)))
+    pub fn default_device() -> Result<Self, Error> {
+        Self::new(0)
     }
 
     pub fn run(&mut self) -> Result<(), Error> {
@@ -123,10 +117,6 @@ impl Engine {
 
     pub fn physical_index(&self) -> usize {
         self.physical_index
-    }
-
-    pub fn shaders(&self) -> Arc<Shaders> {
-        self.shaders.clone()
     }
 
     pub fn device(&self) -> Arc<Device> {
@@ -139,5 +129,13 @@ impl Engine {
 
     pub fn surface(&self) -> Arc<Surface> {
         self.surface.clone()
+    }
+
+    pub fn shaders(&self) -> Arc<Shaders> {
+        self.shaders.clone()
+    }
+
+    pub fn pipeline(&self) -> Arc<GraphicsPipeline> {
+        self.pipeline.clone()
     }
 }

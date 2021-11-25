@@ -1,14 +1,18 @@
 use std::io;
 use vulkano::{
-    device::DeviceCreationError, instance::InstanceCreationError,
+    device::DeviceCreationError, instance::InstanceCreationError, memory::DeviceMemoryAllocError,
     pipeline::GraphicsPipelineCreationError, render_pass::RenderPassCreationError, OomError,
 };
 use vulkano_win::CreationError;
 
+#[derive(Debug)]
 pub enum Error {
     NoQueueFamily,
     NoQueue,
     NoPhysicalDevice,
+    NoShaderCompiler,
+    NoShaderCompileOptions,
+    NoSubpass,
     InstanceCreationError(InstanceCreationError),
     CreationError(CreationError),
     DeviceCreationError(DeviceCreationError),
@@ -16,9 +20,7 @@ pub enum Error {
     OomError(OomError),
     RenderPassCreationError(RenderPassCreationError),
     GraphicsPipelineCreationError(GraphicsPipelineCreationError),
-    NoShaderCompiler,
-    NoShaderCompileOptions,
-    NoSubpass,
+    DeviceMemoryAllocError(DeviceMemoryAllocError),
 }
 
 impl From<InstanceCreationError> for Error {
@@ -60,5 +62,11 @@ impl From<RenderPassCreationError> for Error {
 impl From<GraphicsPipelineCreationError> for Error {
     fn from(e: GraphicsPipelineCreationError) -> Self {
         Self::GraphicsPipelineCreationError(e)
+    }
+}
+
+impl From<DeviceMemoryAllocError> for Error {
+    fn from(e: DeviceMemoryAllocError) -> Self {
+        Self::DeviceMemoryAllocError(e)
     }
 }

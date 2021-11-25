@@ -1,16 +1,13 @@
 use crate::{error::Error, shaders::Shaders, vertex::Vertex};
-use cgmath::Vector3;
 use std::sync::Arc;
 use vulkano::{
-    buffer::{BufferUsage, CpuAccessibleBuffer},
-    command_buffer::{AutoCommandBufferBuilder, SubpassContents},
+    command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, SubpassContents},
     device::{physical::PhysicalDevice, Device, DeviceExtensions, Queue},
     format::Format,
-    image::{ImageUsage, SwapchainImage},
+    image::{view::ImageView, ImageUsage, SwapchainImage},
     instance::Instance,
-    pipeline::{viewport::Viewport, DynamicState, GraphicsPipeline},
-    render_pass::{Framebuffer, FramebufferAbstract, Subpass},
-    spirv::Capability,
+    pipeline::{viewport::Viewport, GraphicsPipeline},
+    render_pass::{Framebuffer, FramebufferAbstract, RenderPass, Subpass},
     swapchain::{
         self, AcquireError, ColorSpace, FullscreenExclusive, PresentMode, SurfaceTransform,
         Swapchain, SwapchainCreationError,
@@ -25,17 +22,20 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
-vulkano::impl_vertex!(Vertex, position);
-
 pub type Surface = swapchain::Surface<Window>;
 
 pub struct Engine {
     physical_index: usize,
+    event_loop: EventLoop<()>,
     device: Arc<Device>,
     queue: Arc<Queue>,
     surface: Arc<Surface>,
     shaders: Arc<Shaders>,
+    render_pass: Arc<RenderPass>,
     pipeline: Arc<GraphicsPipeline>,
+    swapchain: Arc<Swapchain<Window>>,
+    images: Vec<Arc<SwapchainImage<Window>>>,
+    framebuffers: Vec<Arc<dyn FramebufferAbstract + Send + Sync>>,
 }
 
 impl Engine {
@@ -75,7 +75,7 @@ impl Engine {
                 color: {
                     load: Clear,
                     store: Store,
-                    format: Format::R8G8B8A8_UNORM,
+                    format: Format::B8G8R8A8_SRGB,
                     samples: 1,
                 }
             },
@@ -88,31 +88,191 @@ impl Engine {
             GraphicsPipeline::start()
                 .vertex_input_single_buffer::<Vertex>()
                 .vertex_shader(shaders.vertex.main_entry_point(), ())
+                .triangle_list()
                 .viewports_dynamic_scissors_irrelevant(1)
                 .fragment_shader(shaders.fragment.main_entry_point(), ())
                 .render_pass(match Subpass::from(render_pass.clone(), 0) {
                     Some(subpass) => subpass,
                     None => return Err(Error::NoSubpass),
                 })
+                .viewports(vec![Viewport {
+                    origin: [0.0, 0.0],
+                    dimensions: [100 as f32, 100 as f32],
+                    depth_range: 0.0..1.0,
+                }])
                 .build(device.clone())?,
         );
+        let (swapchain, images) = {
+            let caps = surface.capabilities(physical).unwrap();
+            let alpha = caps.supported_composite_alpha.iter().next().unwrap();
+            let format = caps.supported_formats[0].0;
+            let dimensions: [u32; 2] = surface.window().inner_size().into();
+
+            Swapchain::start(device.clone(), surface.clone())
+                .num_images(caps.min_image_count)
+                .composite_alpha(alpha)
+                .format(format)
+                .dimensions(dimensions)
+                .layers(1)
+                .usage(ImageUsage::color_attachment())
+                .transform(SurfaceTransform::Identity)
+                .clipped(true)
+                .color_space(ColorSpace::SrgbNonLinear)
+                .build()
+                .unwrap()
+        };
+        let framebuffers = Self::window_size_dependent_setup(&images, render_pass.clone());
 
         Ok(Self {
             physical_index,
+            event_loop,
             device,
             queue,
             surface,
             shaders,
+            render_pass,
             pipeline,
+            swapchain,
+            images,
+            framebuffers,
         })
     }
 
-    pub fn default_device() -> Result<Self, Error> {
+    pub fn first_device() -> Result<Self, Error> {
         Self::new(0)
     }
 
-    pub fn run(&mut self) -> Result<(), Error> {
-        Ok(())
+    pub fn run(mut self) {
+        let mut recreate_swapchain = false;
+        let mut previous_frame_end = Some(sync::now(self.device.clone()).boxed());
+
+        self.event_loop
+            .run(move |event, _, control_flow| match event {
+                Event::WindowEvent {
+                    event: WindowEvent::CloseRequested,
+                    ..
+                } => *control_flow = ControlFlow::Exit,
+
+                Event::WindowEvent {
+                    event: WindowEvent::Resized(_),
+                    ..
+                } => {
+                    recreate_swapchain = true;
+                }
+
+                Event::RedrawEventsCleared => {
+                    previous_frame_end.as_mut().unwrap().cleanup_finished();
+
+                    if recreate_swapchain {
+                        let (new_swapchain, new_images) =
+                            self.swapchain.recreate().build().unwrap();
+
+                        self.swapchain = new_swapchain;
+                        self.images = new_images;
+
+                        self.framebuffers = Self::window_size_dependent_setup(
+                            &self.images,
+                            self.render_pass.clone(),
+                        );
+
+                        recreate_swapchain = false;
+                    }
+                    let (image_num, suboptimal, acquire_future) =
+                        match swapchain::acquire_next_image(self.swapchain.clone(), None) {
+                            Ok(r) => r,
+                            Err(AcquireError::OutOfDate) => {
+                                recreate_swapchain = true;
+                                return;
+                            }
+                            Err(e) => panic!("Failed to acquire next image: {:?}", e),
+                        };
+
+                    if suboptimal {
+                        recreate_swapchain = true;
+                    }
+
+                    let vertices = [
+                        Vertex {
+                            position: [-0.5, -0.25, 0.0],
+                        },
+                        Vertex {
+                            position: [0.0, 0.5, 0.0],
+                        },
+                        Vertex {
+                            position: [0.25, -0.1, 0.0],
+                        },
+                    ];
+                    let mut builder = AutoCommandBufferBuilder::primary(
+                        self.device.clone(),
+                        self.queue.family(),
+                        CommandBufferUsage::OneTimeSubmit,
+                    )
+                    .unwrap();
+
+                    builder
+                        .bind_pipeline_graphics(self.pipeline.clone())
+                        .begin_render_pass(
+                            self.framebuffers[image_num].clone(),
+                            SubpassContents::Inline,
+                            vec![[0.0, 0.0, 1.0, 1.0].into()],
+                        )
+                        .unwrap()
+                        .bind_vertex_buffers(0, vertices.iter().map(|v| v.position).collect::Vec<[f32; 3]>())
+                        .draw(vertices.len() as u32, (vertices.len() * 3) as u32, 0, 0)
+                        .unwrap()
+                        .end_render_pass()
+                        .unwrap();
+
+                    let command_buffer = builder.build().unwrap();
+
+                    let future = previous_frame_end
+                        .take()
+                        .unwrap()
+                        .join(acquire_future)
+                        .then_execute(self.queue.clone(), command_buffer)
+                        .unwrap()
+                        .then_swapchain_present(
+                            self.queue.clone(),
+                            self.swapchain.clone(),
+                            image_num,
+                        )
+                        .then_signal_fence_and_flush();
+
+                    match future {
+                        Ok(future) => {
+                            previous_frame_end = Some(future.boxed());
+                        }
+                        Err(FlushError::OutOfDate) => {
+                            recreate_swapchain = true;
+                            previous_frame_end = Some(sync::now(self.device.clone()).boxed());
+                        }
+                        Err(e) => {
+                            println!("Failed to flush future: {:?}", e);
+                            previous_frame_end = Some(sync::now(self.device.clone()).boxed());
+                        }
+                    }
+                }
+
+                _ => {}
+            });
+    }
+
+    fn window_size_dependent_setup(
+        images: &Vec<Arc<SwapchainImage<Window>>>,
+        render_pass: Arc<RenderPass>,
+    ) -> Vec<Arc<dyn FramebufferAbstract + Send + Sync>> {
+        images
+            .iter()
+            .map(|image| {
+                Arc::new(
+                    Framebuffer::start(render_pass.clone())
+                        .add(ImageView::new(image.clone()).unwrap())
+                        .unwrap()
+                        .build()
+                        .unwrap(),
+                ) as Arc<dyn FramebufferAbstract + Send + Sync>
+            })
+            .collect::<Vec<Arc<dyn FramebufferAbstract + Send + Sync>>>()
     }
 
     pub fn physical_index(&self) -> usize {
@@ -133,6 +293,10 @@ impl Engine {
 
     pub fn shaders(&self) -> Arc<Shaders> {
         self.shaders.clone()
+    }
+
+    pub fn render_pass(&self) -> Arc<RenderPass> {
+        self.render_pass.clone()
     }
 
     pub fn pipeline(&self) -> Arc<GraphicsPipeline> {

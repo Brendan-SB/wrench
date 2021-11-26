@@ -1,12 +1,13 @@
 use crate::{error::Error, shaders::Shaders, vertex::Vertex};
 use std::sync::Arc;
 use vulkano::{
+    buffer::{BufferAccess, BufferUsage, CpuAccessibleBuffer, TypedBufferAccess},
     command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, SubpassContents},
     device::{physical::PhysicalDevice, Device, DeviceExtensions, Queue},
     format::Format,
     image::{view::ImageView, ImageUsage, SwapchainImage},
     instance::Instance,
-    pipeline::{viewport::Viewport, GraphicsPipeline},
+    pipeline::{vertex::VertexBuffersCollection, viewport::Viewport, GraphicsPipeline},
     render_pass::{Framebuffer, FramebufferAbstract, RenderPass, Subpass},
     swapchain::{
         self, AcquireError, ColorSpace, FullscreenExclusive, PresentMode, SurfaceTransform,
@@ -164,8 +165,14 @@ impl Engine {
                     previous_frame_end.as_mut().unwrap().cleanup_finished();
 
                     if recreate_swapchain {
+                        let dimensions: [u32; 2] = self.surface.window().inner_size().into();
+
                         let (new_swapchain, new_images) =
-                            self.swapchain.recreate().build().unwrap();
+                            match self.swapchain.recreate().dimensions(dimensions).build() {
+                                Ok(r) => r,
+                                Err(SwapchainCreationError::UnsupportedDimensions) => return,
+                                Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
+                            };
 
                         self.swapchain = new_swapchain;
                         self.images = new_images;
@@ -191,17 +198,25 @@ impl Engine {
                         recreate_swapchain = true;
                     }
 
-                    let vertices = [
-                        Vertex {
-                            position: [-0.5, -0.25, 0.0],
-                        },
-                        Vertex {
-                            position: [0.0, 0.5, 0.0],
-                        },
-                        Vertex {
-                            position: [0.25, -0.1, 0.0],
-                        },
-                    ];
+                    let vertex_buffer = CpuAccessibleBuffer::from_iter(
+                        self.device.clone(),
+                        BufferUsage::all(),
+                        false,
+                        [
+                            Vertex {
+                                position: [-0.5, -0.25, 0.0],
+                            },
+                            Vertex {
+                                position: [0.0, 0.5, 0.0],
+                            },
+                            Vertex {
+                                position: [0.25, -0.1, 0.0],
+                            },
+                        ]
+                        .iter()
+                        .cloned(),
+                    )
+                    .unwrap();
                     let mut builder = AutoCommandBufferBuilder::primary(
                         self.device.clone(),
                         self.queue.family(),
@@ -217,8 +232,8 @@ impl Engine {
                             vec![[0.0, 0.0, 1.0, 1.0].into()],
                         )
                         .unwrap()
-                        .bind_vertex_buffers(0, vertices.iter().map(|v| v.position).collect::Vec<[f32; 3]>())
-                        .draw(vertices.len() as u32, (vertices.len() * 3) as u32, 0, 0)
+                        .bind_vertex_buffers(0, vertex_buffer.clone())
+                        .draw(vertex_buffer.len() as u32, 1, 0, 0)
                         .unwrap()
                         .end_render_pass()
                         .unwrap();
@@ -264,9 +279,10 @@ impl Engine {
         images
             .iter()
             .map(|image| {
+                let view = ImageView::new(image.clone()).unwrap();
                 Arc::new(
                     Framebuffer::start(render_pass.clone())
-                        .add(ImageView::new(image.clone()).unwrap())
+                        .add(view)
                         .unwrap()
                         .build()
                         .unwrap(),

@@ -1,13 +1,28 @@
-use crate::{error::Error, shaders::Shaders, vertex::Vertex};
+use crate::{
+    error::Error,
+    shaders::{vertex, Shaders},
+    types::{Normal, Vertex},
+};
+use cgmath::{Matrix3, Matrix4, Point3, Rad, Vector3};
 use std::sync::Arc;
+use std::time::Instant;
 use vulkano::{
-    buffer::{BufferAccess, BufferUsage, CpuAccessibleBuffer, TypedBufferAccess},
+    buffer::{
+        cpu_pool::CpuBufferPool, BufferAccess, BufferUsage, CpuAccessibleBuffer, TypedBufferAccess,
+    },
     command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, SubpassContents},
+    descriptor_set::persistent::PersistentDescriptorSet,
     device::{physical::PhysicalDevice, Device, DeviceExtensions, Queue},
     format::Format,
-    image::{view::ImageView, ImageUsage, SwapchainImage},
+    image::{attachment::AttachmentImage, view::ImageView, ImageUsage, SwapchainImage},
     instance::Instance,
-    pipeline::{vertex::VertexBuffersCollection, viewport::Viewport, GraphicsPipeline},
+    pipeline::{
+        depth_stencil::DepthStencil,
+        input_assembly::InputAssembly,
+        vertex::{BuffersDefinition, VertexBuffersCollection},
+        viewport::Viewport,
+        GraphicsPipeline, PipelineBindPoint,
+    },
     render_pass::{Framebuffer, FramebufferAbstract, RenderPass, Subpass},
     swapchain::{
         self, AcquireError, ColorSpace, FullscreenExclusive, PresentMode, SurfaceTransform,
@@ -71,38 +86,6 @@ impl Engine {
             None => return Err(Error::NoQueue),
         };
         let shaders = Arc::new(Shaders::new(device.clone())?);
-        let render_pass = Arc::new(vulkano::single_pass_renderpass!(device.clone(),
-            attachments: {
-                color: {
-                    load: Clear,
-                    store: Store,
-                    format: Format::B8G8R8A8_SRGB,
-                    samples: 1,
-                }
-            },
-            pass: {
-                color: [color],
-                depth_stencil: {}
-            }
-        )?);
-        let pipeline = Arc::new(
-            GraphicsPipeline::start()
-                .vertex_input_single_buffer::<Vertex>()
-                .vertex_shader(shaders.vertex.main_entry_point(), ())
-                .triangle_list()
-                .viewports_dynamic_scissors_irrelevant(1)
-                .fragment_shader(shaders.fragment.main_entry_point(), ())
-                .render_pass(match Subpass::from(render_pass.clone(), 0) {
-                    Some(subpass) => subpass,
-                    None => return Err(Error::NoSubpass),
-                })
-                .viewports(vec![Viewport {
-                    origin: [0.0, 0.0],
-                    dimensions: [100 as f32, 100 as f32],
-                    depth_range: 0.0..1.0,
-                }])
-                .build(device.clone())?,
-        );
         let (swapchain, images) = {
             let caps = surface.capabilities(physical).unwrap();
             let alpha = caps.supported_composite_alpha.iter().next().unwrap();
@@ -122,7 +105,32 @@ impl Engine {
                 .build()
                 .unwrap()
         };
-        let framebuffers = Self::window_size_dependent_setup(&images, render_pass.clone());
+        let render_pass = Arc::new(vulkano::single_pass_renderpass!(device.clone(),
+                attachments: {
+            color: {
+                load: Clear,
+                store: Store,
+                format: swapchain.format(),
+                samples: 1,
+            },
+            depth: {
+                load: Clear,
+                store: DontCare,
+                format: Format::D16_UNORM,
+                samples: 1,
+            }
+        },
+        pass: {
+            color: [color],
+            depth_stencil: {depth}
+        }
+        )?);
+        let (pipeline, framebuffers) = Self::window_size_dependent_setup(
+            &images,
+            render_pass.clone(),
+            device.clone(),
+            shaders.clone(),
+        )?;
 
         Ok(Self {
             physical_index,
@@ -143,9 +151,17 @@ impl Engine {
         Self::new(0)
     }
 
-    pub fn run(mut self) {
+    pub fn run(
+        mut self,
+        normals: &'static [Normal],
+        vertices: &'static [Vertex],
+        indices: &'static [u16],
+    ) {
         let mut recreate_swapchain = false;
         let mut previous_frame_end = Some(sync::now(self.device.clone()).boxed());
+        let uniform_buffer =
+            CpuBufferPool::<vertex::ty::Data>::new(self.device.clone(), BufferUsage::all());
+        let rotation_start = Instant::now();
 
         self.event_loop
             .run(move |event, _, control_flow| match event {
@@ -177,13 +193,60 @@ impl Engine {
                         self.swapchain = new_swapchain;
                         self.images = new_images;
 
-                        self.framebuffers = Self::window_size_dependent_setup(
+                        let (new_pipeline, new_framebuffers) = Self::window_size_dependent_setup(
                             &self.images,
                             self.render_pass.clone(),
-                        );
+                            self.device.clone(),
+                            self.shaders.clone(),
+                        )
+                        .unwrap();
+
+                        self.pipeline = new_pipeline;
+                        self.framebuffers = new_framebuffers;
 
                         recreate_swapchain = false;
                     }
+
+                    let dimensions: [u32; 2] = self.surface.window().inner_size().into();
+                    let uniform_buffer_subbuffer = {
+                        let elapsed = rotation_start.elapsed();
+                        let rotation = elapsed.as_secs() as f64
+                            + elapsed.subsec_nanos() as f64 / 1_000_000_000.0;
+                        let rotation = Matrix3::from_angle_y(Rad(rotation as f32));
+                        let aspect_ratio = dimensions[0] as f32 / dimensions[1] as f32;
+                        let proj = cgmath::perspective(
+                            Rad(std::f32::consts::FRAC_PI_2),
+                            aspect_ratio,
+                            0.01,
+                            100.0,
+                        );
+                        let view = Matrix4::look_at_rh(
+                            Point3::new(0.3, 0.3, 1.0),
+                            Point3::new(0.0, 0.0, 0.0),
+                            Vector3::new(0.0, -1.0, 0.0),
+                        );
+                        let scale = Matrix4::from_scale(0.01);
+
+                        let uniform_data = vertex::ty::Data {
+                            world: Matrix4::from(rotation).into(),
+                            view: (view * scale).into(),
+                            proj: proj.into(),
+                        };
+
+                        Arc::new(uniform_buffer.next(uniform_data).unwrap())
+                    };
+                    let layout = self
+                        .pipeline
+                        .layout()
+                        .descriptor_set_layouts()
+                        .get(0)
+                        .unwrap();
+                    let mut set_builder = PersistentDescriptorSet::start(layout.clone());
+
+                    set_builder.add_buffer(uniform_buffer_subbuffer).unwrap();
+
+                    let set = Arc::new(set_builder.build().unwrap());
+
                     let (image_num, suboptimal, acquire_future) =
                         match swapchain::acquire_next_image(self.swapchain.clone(), None) {
                             Ok(r) => r,
@@ -198,23 +261,25 @@ impl Engine {
                         recreate_swapchain = true;
                     }
 
+                    let normal_buffer = CpuAccessibleBuffer::from_iter(
+                        self.device.clone(),
+                        BufferUsage::all(),
+                        false,
+                        normals.iter().cloned(),
+                    )
+                    .unwrap();
                     let vertex_buffer = CpuAccessibleBuffer::from_iter(
                         self.device.clone(),
                         BufferUsage::all(),
                         false,
-                        [
-                            Vertex {
-                                position: [-0.5, -0.25, 0.0],
-                            },
-                            Vertex {
-                                position: [0.0, 0.5, 0.0],
-                            },
-                            Vertex {
-                                position: [0.25, -0.1, 0.0],
-                            },
-                        ]
-                        .iter()
-                        .cloned(),
+                        vertices.iter().cloned(),
+                    )
+                    .unwrap();
+                    let index_buffer = CpuAccessibleBuffer::from_iter(
+                        self.device.clone(),
+                        BufferUsage::all(),
+                        false,
+                        indices.iter().cloned(),
                     )
                     .unwrap();
                     let mut builder = AutoCommandBufferBuilder::primary(
@@ -225,15 +290,22 @@ impl Engine {
                     .unwrap();
 
                     builder
-                        .bind_pipeline_graphics(self.pipeline.clone())
                         .begin_render_pass(
                             self.framebuffers[image_num].clone(),
                             SubpassContents::Inline,
-                            vec![[0.0, 0.0, 1.0, 1.0].into()],
+                            vec![[0.0, 0.0, 1.0, 1.0].into(), 1_f32.into()],
                         )
                         .unwrap()
-                        .bind_vertex_buffers(0, vertex_buffer.clone())
-                        .draw(vertex_buffer.len() as u32, 1, 0, 0)
+                        .bind_pipeline_graphics(self.pipeline.clone())
+                        .bind_descriptor_sets(
+                            PipelineBindPoint::Graphics,
+                            self.pipeline.layout().clone(),
+                            0,
+                            set.clone(),
+                        )
+                        .bind_vertex_buffers(0, (vertex_buffer.clone(), normal_buffer.clone()))
+                        .bind_index_buffer(index_buffer.clone())
+                        .draw_indexed(index_buffer.len() as u32, 1, 0, 0, 0)
                         .unwrap()
                         .end_render_pass()
                         .unwrap();
@@ -275,8 +347,21 @@ impl Engine {
     fn window_size_dependent_setup(
         images: &Vec<Arc<SwapchainImage<Window>>>,
         render_pass: Arc<RenderPass>,
-    ) -> Vec<Arc<dyn FramebufferAbstract + Send + Sync>> {
-        images
+        device: Arc<Device>,
+        shaders: Arc<Shaders>,
+    ) -> Result<
+        (
+            Arc<GraphicsPipeline>,
+            Vec<Arc<dyn FramebufferAbstract + Send + Sync>>,
+        ),
+        Error,
+    > {
+        let dimensions = images[0].dimensions();
+        let depth_buffer = ImageView::new(
+            AttachmentImage::transient(device.clone(), dimensions, Format::D16_UNORM).unwrap(),
+        )
+        .unwrap();
+        let framebuffers = images
             .iter()
             .map(|image| {
                 let view = ImageView::new(image.clone()).unwrap();
@@ -284,11 +369,37 @@ impl Engine {
                     Framebuffer::start(render_pass.clone())
                         .add(view)
                         .unwrap()
+                        .add(depth_buffer.clone()).unwrap()
                         .build()
                         .unwrap(),
                 ) as Arc<dyn FramebufferAbstract + Send + Sync>
             })
-            .collect::<Vec<Arc<dyn FramebufferAbstract + Send + Sync>>>()
+            .collect::<Vec<Arc<dyn FramebufferAbstract + Send + Sync>>>();
+        let pipeline = Arc::new(
+            GraphicsPipeline::start()
+                .vertex_input(
+                    BuffersDefinition::new()
+                        .vertex::<Vertex>()
+                        .vertex::<Normal>(),
+                )
+                .vertex_shader(shaders.vertex.main_entry_point(), ())
+                .triangle_list()
+                .viewports_dynamic_scissors_irrelevant(1)
+                .fragment_shader(shaders.fragment.main_entry_point(), ())
+                .render_pass(match Subpass::from(render_pass.clone(), 0) {
+                    Some(subpass) => subpass,
+                    None => return Err(Error::NoSubpass),
+                })
+                .viewports(vec![Viewport {
+                    origin: [0.0, 0.0],
+                    dimensions: [dimensions[0] as f32, dimensions[1] as f32],
+                    depth_range: 0.0..1.0,
+                }])
+                .depth_stencil(DepthStencil::simple_depth_test())
+                .build(device.clone())?,
+        );
+
+        Ok((pipeline, framebuffers))
     }
 
     pub fn physical_index(&self) -> usize {

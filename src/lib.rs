@@ -1,7 +1,7 @@
 pub mod engine;
 pub mod error;
 pub mod shaders;
-pub mod vertex;
+pub mod types;
 
 pub use cgmath;
 pub use vulkano;

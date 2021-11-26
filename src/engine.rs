@@ -153,9 +153,9 @@ impl Engine {
 
     pub fn run(
         mut self,
-        normals: &'static [Normal],
-        vertices: &'static [Vertex],
-        indices: &'static [u16],
+        normals: Arc<Vec<Normal>>,
+        vertices: Arc<Vec<Vertex>>,
+        indices: Arc<Vec<u16>>,
     ) {
         let mut recreate_swapchain = false;
         let mut previous_frame_end = Some(sync::now(self.device.clone()).boxed());
@@ -369,7 +369,8 @@ impl Engine {
                     Framebuffer::start(render_pass.clone())
                         .add(view)
                         .unwrap()
-                        .add(depth_buffer.clone()).unwrap()
+                        .add(depth_buffer.clone())
+                        .unwrap()
                         .build()
                         .unwrap(),
                 ) as Arc<dyn FramebufferAbstract + Send + Sync>

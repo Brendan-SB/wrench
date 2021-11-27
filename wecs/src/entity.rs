@@ -30,7 +30,7 @@ impl Entity {
 
         let mut components = self.components.lock().unwrap();
 
-        component.set_entity(self.clone());
+        component.set_entity(Some(self.clone()));
 
         match components.get(&component.tid()) {
             Some(components) => {
@@ -86,9 +86,10 @@ impl Entity {
                 .clone()
                 .into_iter()
                 .enumerate()
-                .filter(|(_, c)| *c.tid() == *id)
-                .for_each(|(i, _)| {
+                .filter(|(_, c)| *c.id() == *id)
+                .for_each(|(i, v)| {
                     components.remove(i);
+                    v.set_entity(None);
                 })
         }
     }

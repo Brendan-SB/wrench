@@ -6,13 +6,13 @@ use std::{
 };
 
 pub struct World {
-    pub entities: Mutex<Vec<Arc<Entity>>>,
+    pub entities: Arc<Mutex<Vec<Arc<Entity>>>>,
 }
 
 impl World {
     pub fn new() -> Arc<Self> {
         Arc::new(Self {
-            entities: Mutex::new(Vec::new()),
+            entities: Arc::new(Mutex::new(Vec::new())),
         })
     }
 
@@ -33,6 +33,10 @@ impl World {
         let entity = Entity::new(id, Mutex::new(self.clone()), Mutex::new(HashMap::new()));
 
         entity
+    }
+
+    pub fn get(&self) -> Arc<Mutex<Vec<Arc<Entity>>>> {
+        self.entities.clone()
     }
 
     pub fn remove<T>(&self, entity: T)

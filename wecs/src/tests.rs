@@ -24,10 +24,10 @@ impl Component for TestComponent {
         self.entity.clone()
     }
 
-    fn set_entity(&self, new_entity: Arc<Entity>) {
+    fn set_entity(&self, new_entity: Option<Arc<Entity>>) {
         let mut entity = self.entity.lock().unwrap();
 
-        *entity = Some(new_entity);
+        *entity = new_entity;
     }
 
     fn id(&self) -> Arc<String> {
@@ -44,7 +44,7 @@ impl Component for TestComponent {
 }
 
 #[test]
-fn test() {
+fn get_test() {
     let world = World::new();
     let entity = world.clone().create_default(Arc::new("entity".to_string()));
 
@@ -54,4 +54,26 @@ fn test() {
         .get::<TestComponent>(Arc::new("test".to_string()), Arc::new("name".to_string()))[0].clone();
 
     assert_eq!(component.test, 10);
+}
+
+#[test]
+fn get_type_test() {
+    let world = World::new();
+    let entity = world.clone().create_default(Arc::new("entity".to_string()));
+
+    entity.clone().add(TestComponent::new());
+
+    let component = entity
+        .get_type::<TestComponent>(Arc::new("test".to_string()))[0].clone();
+
+    assert_eq!(component.test, 10);
+
+    entity.remove(component);   
+
+    assert_eq!(entity
+        .get_type::<TestComponent>(Arc::new("test".to_string())).iter().map(|c| c.test).collect::<Vec<usize>>(), vec![]);
+
+    world.remove(entity);
+
+    assert_eq!(world.get().lock().unwrap().iter().map(|e| e.id.clone()).collect::<Vec<Arc<String>>>(), vec![]);
 }

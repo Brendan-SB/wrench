@@ -6,14 +6,14 @@ use std::{
 
 pub struct Entity {
     pub id: Arc<String>,
-    pub world: Mutex<Arc<World>>,
+    pub world: Mutex<Option<Arc<World>>>,
     pub components: Mutex<HashMap<Arc<String>, Arc<Mutex<Vec<Arc<dyn Component + Send + Sync>>>>>>,
 }
 
 impl Entity {
     pub fn new(
         id: Arc<String>,
-        world: Mutex<Arc<World>>,
+        world: Mutex<Option<Arc<World>>>,
         components: Mutex<HashMap<Arc<String>, Arc<Mutex<Vec<Arc<dyn Component + Send + Sync>>>>>>,
     ) -> Arc<Self> {
         Arc::new(Self {
@@ -46,16 +46,28 @@ impl Entity {
     }
 
     pub fn get_type<T>(&self, type_id: Arc<String>) -> Arc<Vec<Arc<T>>>
-    where T: Component + Send + Sync + 'static {
+    where
+        T: Component + Send + Sync + 'static,
+    {
         match self.components.lock().unwrap().get(&type_id) {
-            Some(components) => Arc::new(components.lock().unwrap().clone().into_iter().map(|c| c.as_any().downcast::<T>().unwrap()).collect::<Vec<Arc<T>>>()),
+            Some(components) => Arc::new(
+                components
+                    .lock()
+                    .unwrap()
+                    .clone()
+                    .into_iter()
+                    .map(|c| c.as_any().downcast::<T>().unwrap())
+                    .collect::<Vec<Arc<T>>>(),
+            ),
 
             None => Arc::new(Vec::new()),
         }
     }
 
-    pub fn get<T>(&self, type_id: Arc<String>, id: Arc<String>) -> Arc<Vec<Arc<T>>> 
-    where T: Component + Send + Sync + 'static {
+    pub fn get<T>(&self, type_id: Arc<String>, id: Arc<String>) -> Arc<Vec<Arc<T>>>
+    where
+        T: Component + Send + Sync + 'static,
+    {
         match self.components.lock().unwrap().get(&type_id) {
             Some(components) => Arc::new(
                 components
@@ -97,8 +109,8 @@ impl Entity {
 
 impl Drop for Entity {
     fn drop(&mut self) {
-        let world = self.world.lock().unwrap();
-
-        world.remove_by_id(self.id.clone());
+        if let Some(world) = self.world.lock().unwrap().as_ref() {
+            world.remove_by_id(self.id.clone());
+        }
     }
 }

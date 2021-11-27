@@ -21,7 +21,7 @@ impl World {
         id: Arc<String>,
         components: Mutex<HashMap<Arc<String>, Arc<Mutex<Vec<Arc<dyn Component + Send + Sync>>>>>>,
     ) -> Arc<Entity> {
-        let entity = Entity::new(id, Mutex::new(self.clone()), components);
+        let entity = Entity::new(id, Mutex::new(Some(self.clone())), components);
         let mut entities = self.entities.lock().unwrap();
 
         entities.push(entity.clone());
@@ -30,7 +30,11 @@ impl World {
     }
 
     pub fn create_default(self: Arc<Self>, id: Arc<String>) -> Arc<Entity> {
-        let entity = Entity::new(id, Mutex::new(self.clone()), Mutex::new(HashMap::new()));
+        let entity = Entity::new(
+            id,
+            Mutex::new(Some(self.clone())),
+            Mutex::new(HashMap::new()),
+        );
 
         entity
     }
@@ -54,8 +58,9 @@ impl World {
             .into_iter()
             .enumerate()
             .filter(|(_, e)| *e.id == *id)
-            .for_each(|(i, _)| {
+            .for_each(|(i, e)| {
                 entities.remove(i);
+                *e.world.lock().unwrap() = None;
             });
     }
 }

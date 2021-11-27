@@ -1,5 +1,8 @@
 use crate::{Component, Entity, World};
-use std::{any::Any, sync::{Arc, Mutex}};
+use std::{
+    any::Any,
+    sync::{Arc, Mutex},
+};
 
 struct TestComponent {
     test: usize,
@@ -51,7 +54,8 @@ fn get_test() {
     entity.clone().add(TestComponent::new());
 
     let component = entity
-        .get::<TestComponent>(Arc::new("test".to_string()), Arc::new("name".to_string()))[0].clone();
+        .get::<TestComponent>(Arc::new("test".to_string()), Arc::new("name".to_string()))[0]
+        .clone();
 
     assert_eq!(component.test, 10);
 }
@@ -63,17 +67,31 @@ fn get_type_test() {
 
     entity.clone().add(TestComponent::new());
 
-    let component = entity
-        .get_type::<TestComponent>(Arc::new("test".to_string()))[0].clone();
+    let component = entity.get_type::<TestComponent>(Arc::new("test".to_string()))[0].clone();
 
     assert_eq!(component.test, 10);
 
-    entity.remove(component);   
+    entity.remove(component);
 
-    assert_eq!(entity
-        .get_type::<TestComponent>(Arc::new("test".to_string())).iter().map(|c| c.test).collect::<Vec<usize>>(), vec![]);
+    assert_eq!(
+        entity
+            .get_type::<TestComponent>(Arc::new("test".to_string()))
+            .iter()
+            .map(|c| c.test)
+            .collect::<Vec<usize>>(),
+        vec![]
+    );
 
     world.remove(entity);
 
-    assert_eq!(world.get().lock().unwrap().iter().map(|e| e.id.clone()).collect::<Vec<Arc<String>>>(), vec![]);
+    assert_eq!(
+        world
+            .get()
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|e| e.id.clone())
+            .collect::<Vec<Arc<String>>>(),
+        vec![]
+    );
 }

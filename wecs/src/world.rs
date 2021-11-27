@@ -35,6 +35,9 @@ impl World {
             Mutex::new(Some(self.clone())),
             Mutex::new(HashMap::new()),
         );
+        let mut entities = self.entities.lock().unwrap();
+
+        entities.push(entity.clone());
 
         entity
     }
@@ -47,6 +50,7 @@ impl World {
     where
         T: Deref<Target = Entity>,
     {
+        println!("{}", entity.id.clone());
         self.remove_by_id(entity.id.clone());
     }
 

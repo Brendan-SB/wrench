@@ -1,10 +1,9 @@
 use proc_macro::TokenStream;
-use quote::{quote, quote_spanned};
+use quote::quote;
 use syn::{
-    parse_macro_input, parse_quote, spanned::Spanned, Data, DeriveInput, Fields, GenericParam,
-    Generics, Index,
+    parse_macro_input, parse_quote, DeriveInput, GenericParam,
+    Generics
 };
-use wecs::{Component, Entity, Registry};
 
 fn add_trait_bounds(mut generics: Generics) -> Generics {
     for param in &mut generics.params {
@@ -22,20 +21,24 @@ pub fn component(input: TokenStream) -> TokenStream {
     let generics = add_trait_bounds(input.generics);
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let expanded = quote! {
-        impl #impl_generics Entity for #name #ty_generics #where_clause {
-            fn registry(self: Arc<Self>) -> Option<Arc<Registry>> {
-                self.registry.clone()
+        impl #impl_generics Component for #name #ty_generics #where_clause {
+            fn entity(&self) -> Arc<Entity> {
+                self.entity.clone()
             }
 
-            fn components(self: Arc<Self>) -> Arc<Vec<Arc<Component>>> {
-                self.components.clone()
+            fn id(&self) -> Arc<String> {
+                self.id.clone()
+            }
+
+            fn type_id(&self) -> Arc<String> {
+                self.type_id.clone()
             }
         }
 
         impl #impl_generics Drop for #name #ty_generics #where_clause {
             fn drop(&mut self) {
                 self.on_drop();
-                self.registry.remove_by_id(self.id);
+                self.entity.remove_by_id(self.id);
             }
         }
     };

@@ -1,42 +1,42 @@
-use crate::{Component, Registry, World};
-use std::sync::{Arc, Mutex};
+use crate::{Component, World};
+use std::{collections: HashMap, sync::{Arc, Mutex}};
 
 pub struct Entity {
     pub id: String,
-    pub registry: Arc<Mutex<Arc<Registry>>>,
-    pub components: Arc<Mutex<Vec<Arc<dyn Component>>>>,
+    pub world: Mutex<Arc<World>>,
+    pub components: Mutex<Vec<HashMap<String, Arc<dyn Component>>>>,
 }
 
 impl Entity {
     pub fn new(
         id: String,
-        registry: Arc<Mutex<Arc<Registry>>>,
-        components: Arc<Mutex<Vec<Arc<dyn Component>>>>,
+        world: Mutex<Arc<World>>,
+        components: Mutex<Vec<Arc<dyn Component>>>,
     ) -> Arc<Self> {
         Arc::new(Self {
             id,
-            registry,
+            world,
             components,
         })
     }
 
-    pub fn get_of_type_id(&self, type_id: &String) -> Vec<Arc<dyn Component>> {
-        self.components
-            .lock()
-            .unwrap()
-            .clone()
-            .into_iter()
-            .filter(|c| *c.type_id() == *type_id)
-            .collect::<Vec<Arc<dyn Component>>>()
-    }
-
-    pub fn get_of_id(&self, id: &String) -> Vec<Arc<dyn Component>> {
+    pub fn get(&self, id: &String) -> Vec<Arc<dyn Component>> {
         self.components
             .lock()
             .unwrap()
             .clone()
             .into_iter()
             .filter(|c| *c.id() == *id)
+            .collect::<Vec<Arc<dyn Component>>>()
+    }
+
+    pub fn get_type(&self, type_id: &String) -> Vec<Arc<dyn Component>> {
+        self.components
+            .lock()
+            .unwrap()
+            .clone()
+            .into_iter()
+            .filter(|c| *c.type_id() == *type_id)
             .collect::<Vec<Arc<dyn Component>>>()
     }
 
@@ -52,5 +52,13 @@ impl Entity {
                 components.remove(i);
             }
         }
+    }
+}
+
+impl Drop for Entity {
+    fn drop(&mut self) {
+        let world = self.world.lock().unwrap();
+
+        world.remove_by_id(&self.id);
     }
 }

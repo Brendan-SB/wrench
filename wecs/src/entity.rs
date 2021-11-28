@@ -7,7 +7,7 @@ use std::{
 pub struct Entity {
     pub id: Arc<String>,
     pub world: Mutex<Option<Arc<World>>>,
-    pub components: Mutex<HashMap<Arc<String>, Arc<Mutex<Vec<Arc<dyn Component + Send + Sync>>>>>>,
+    components: Arc<Mutex<HashMap<Arc<String>, Arc<Mutex<Vec<Arc<dyn Component + Send + Sync>>>>>>>,
 }
 
 impl Entity {
@@ -15,7 +15,7 @@ impl Entity {
         Arc::new(Self {
             id,
             world,
-            components: Mutex::new(HashMap::new()),
+            components: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 
@@ -35,6 +35,10 @@ impl Entity {
                 components.insert(component.tid(), Arc::new(Mutex::new(vec![component])));
             }
         }
+    }
+
+    pub fn components(&self) -> Arc<Mutex<HashMap<Arc<String>, Arc<Mutex<Vec<Arc<dyn Component + Send + Sync>>>>>>> {
+        self.components.clone()
     }
 
     pub fn get_type<T>(&self, type_id: Arc<String>) -> Arc<Vec<Arc<T>>>

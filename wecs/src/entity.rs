@@ -41,31 +41,31 @@ impl Entity {
         self.components.clone()
     }
 
-    pub fn get_type<T>(&self, type_id: Arc<String>) -> Arc<Vec<Arc<T>>>
+    pub fn get_type<T>(&self, type_id: Arc<String>) -> Option<Arc<Vec<Arc<T>>>>
     where
         T: Component + Send + Sync + 'static,
     {
         match self.components.lock().unwrap().get(&type_id) {
-            Some(components) => Arc::new(
+            Some(components) => Some(Arc::new(
                 components
                     .lock()
                     .unwrap()
                     .clone()
                     .into_iter()
                     .map(|c| c.as_any().downcast::<T>().unwrap())
-                    .collect::<Vec<Arc<T>>>(),
+                    .collect::<Vec<Arc<T>>>())
             ),
 
-            None => Arc::new(Vec::new()),
+            None => None,
         }
     }
 
-    pub fn get<T>(&self, type_id: Arc<String>, id: Arc<String>) -> Arc<Vec<Arc<T>>>
+    pub fn get<T>(&self, type_id: Arc<String>, id: Arc<String>) -> Option<Arc<Vec<Arc<T>>>>
     where
         T: Component + Send + Sync + 'static,
     {
         match self.components.lock().unwrap().get(&type_id) {
-            Some(components) => Arc::new(
+            Some(components) => Some(Arc::new(
                 components
                     .lock()
                     .unwrap()
@@ -73,10 +73,10 @@ impl Entity {
                     .into_iter()
                     .filter(|c| *c.id() == *id)
                     .map(|c| c.as_any().downcast::<T>().unwrap())
-                    .collect::<Vec<Arc<T>>>(),
+                    .collect::<Vec<Arc<T>>>()),
             ),
 
-            None => Arc::new(Vec::new()),
+            None => None,
         }
     }
 

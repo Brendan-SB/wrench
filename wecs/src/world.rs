@@ -1,12 +1,11 @@
-use crate::{Component, Entity};
+use crate::Entity;
 use std::{
-    collections::HashMap,
     ops::Deref,
     sync::{Arc, Mutex},
 };
 
 pub struct World {
-    pub entities: Arc<Mutex<Vec<Arc<Entity>>>>,
+    entities: Arc<Mutex<Vec<Arc<Entity>>>>,
 }
 
 impl World {
@@ -16,12 +15,8 @@ impl World {
         })
     }
 
-    pub fn create(
-        self: Arc<Self>,
-        id: Arc<String>,
-        components: Mutex<HashMap<Arc<String>, Arc<Mutex<Vec<Arc<dyn Component + Send + Sync>>>>>>,
-    ) -> Arc<Entity> {
-        let entity = Entity::new(id, Mutex::new(Some(self.clone())), components);
+    pub fn create(self: Arc<Self>, id: Arc<String>) -> Arc<Entity> {
+        let entity = Entity::new(id, Mutex::new(Some(self.clone())));
         let mut entities = self.entities.lock().unwrap();
 
         entities.push(entity.clone());
@@ -29,17 +24,8 @@ impl World {
         entity
     }
 
-    pub fn create_default(self: Arc<Self>, id: Arc<String>) -> Arc<Entity> {
-        let entity = Entity::new(
-            id,
-            Mutex::new(Some(self.clone())),
-            Mutex::new(HashMap::new()),
-        );
-        let mut entities = self.entities.lock().unwrap();
-
-        entities.push(entity.clone());
-
-        entity
+    pub fn entities(&self) -> Arc<Mutex<Vec<Arc<Entity>>>> {
+        self.entities.clone()
     }
 
     pub fn get(&self) -> Arc<Mutex<Vec<Arc<Entity>>>> {
@@ -50,7 +36,6 @@ impl World {
     where
         T: Deref<Target = Entity>,
     {
-        println!("{}", entity.id.clone());
         self.remove_by_id(entity.id.clone());
     }
 

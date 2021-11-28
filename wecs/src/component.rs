@@ -16,6 +16,4 @@ pub trait Component: Send + Sync {
     fn as_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync>;
 
     fn on_update(&self) {}
-
-    fn on_drop(&mut self) {}
 }

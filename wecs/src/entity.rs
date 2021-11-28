@@ -11,23 +11,15 @@ pub struct Entity {
 }
 
 impl Entity {
-    pub fn new(
-        id: Arc<String>,
-        world: Mutex<Option<Arc<World>>>,
-        components: Mutex<HashMap<Arc<String>, Arc<Mutex<Vec<Arc<dyn Component + Send + Sync>>>>>>,
-    ) -> Arc<Self> {
+    pub fn new(id: Arc<String>, world: Mutex<Option<Arc<World>>>) -> Arc<Self> {
         Arc::new(Self {
             id,
             world,
-            components,
+            components: Mutex::new(HashMap::new()),
         })
     }
 
     pub fn add(self: Arc<Self>, component: Arc<dyn Component + Send + Sync>) {
-        if let Some(entity) = component.entity().clone().lock().unwrap().as_ref() {
-            entity.remove_by_id(component.tid(), component.id());
-        }
-
         let mut components = self.components.lock().unwrap();
 
         component.set_entity(Some(self.clone()));
@@ -103,14 +95,6 @@ impl Entity {
                     components.remove(i);
                     v.set_entity(None);
                 })
-        }
-    }
-}
-
-impl Drop for Entity {
-    fn drop(&mut self) {
-        if let Some(world) = self.world.lock().unwrap().as_ref() {
-            world.remove_by_id(self.id.clone());
         }
     }
 }

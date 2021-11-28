@@ -1,8 +1,8 @@
+pub mod assets;
 pub mod components;
 pub mod engine;
 pub mod error;
 pub mod shaders;
-pub mod types;
 
 pub use cgmath;
 pub use cgmath::*;

@@ -1,27 +1,20 @@
-use crate::{
-    ecs::reexports::*,
-    types::{Normal, Vertex},
-};
+use crate::{assets, ecs::reexports::*};
 
 #[derive(Component)]
 pub struct Mesh {
     pub entity: Arc<Mutex<Option<Arc<Entity>>>>,
     pub id: Arc<String>,
     pub tid: Arc<String>,
-    pub vertices: Vec<Vertex>,
-    pub normals: Vec<Normal>,
-    pub indices: Vec<u32>,
+    pub asset: Arc<assets::Mesh>,
 }
 
 impl Mesh {
-    pub fn new(vertices: Vec<Vertex>, normals: Vec<Normal>, indices: Vec<u32>) -> Arc<Self> {
+    pub fn new(id: Arc<String>, asset: Arc<assets::Mesh>) -> Arc<Self> {
         Arc::new(Self {
             entity: Arc::new(Mutex::new(None)),
-            id: Arc::new("mesh".to_string()),
+            id,
             tid: Arc::new("mesh".to_string()),
-            vertices,
-            normals,
-            indices,
+            asset,
         })
     }
 }

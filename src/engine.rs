@@ -1,9 +1,9 @@
 use crate::{
+    assets::mesh::{Normal, Vertex},
     components::Mesh,
     ecs::World,
     error::Error,
     shaders::{vertex, Shaders},
-    types::{Normal, Vertex},
 };
 use cgmath::{Matrix3, Matrix4, Point3, Rad, Vector3};
 use std::sync::{Arc, Mutex};
@@ -11,7 +11,7 @@ use vulkano::{
     buffer::{cpu_pool::CpuBufferPool, BufferUsage, CpuAccessibleBuffer, TypedBufferAccess},
     command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, SubpassContents},
     descriptor_set::persistent::PersistentDescriptorSet,
-    device::{physical::PhysicalDevice, Device, DeviceExtensions, Queue},
+    device::{physical::PhysicalDevice, Device, DeviceExtensions},
     format::Format,
     image::{attachment::AttachmentImage, view::ImageView, ImageUsage, SwapchainImage},
     instance::Instance,
@@ -38,23 +38,24 @@ pub type Surface = swapchain::Surface<Window>;
 pub struct Engine {
     pub world: Mutex<Arc<World>>,
     physical_index: usize,
-    event_loop: EventLoop<()>,
-    device: Arc<Device>,
-    queue: Arc<Queue>,
-    surface: Arc<Surface>,
-    shaders: Arc<Shaders>,
-    render_pass: Arc<RenderPass>,
-    pipeline: Arc<GraphicsPipeline>,
-    swapchain: Arc<Swapchain<Window>>,
-    images: Vec<Arc<SwapchainImage<Window>>>,
-    framebuffers: Vec<Arc<dyn FramebufferAbstract + Send + Sync>>,
 }
 
 impl Engine {
-    pub fn new(world: Arc<World>, physical_index: usize) -> Result<Self, Error> {
+    pub fn new(world: Arc<World>, physical_index: usize) -> Arc<Self> {
+        Arc::new(Self {
+            world: Mutex::new(world),
+            physical_index,
+        })
+    }
+
+    pub fn first_device(world: Arc<World>) -> Arc<Self> {
+        Self::new(world, 0)
+    }
+
+    pub fn run(self: Arc<Self>) -> Result<(), Error> {
         let req_exts = vulkano_win::required_extensions();
         let instance = Instance::new(None, Version::V1_1, &req_exts, None)?;
-        let physical = match PhysicalDevice::from_index(&instance, physical_index) {
+        let physical = match PhysicalDevice::from_index(&instance, self.physical_index) {
             Some(physical) => physical,
             None => return Err(Error::NoPhysicalDevice),
         };
@@ -82,7 +83,7 @@ impl Engine {
             None => return Err(Error::NoQueue),
         };
         let shaders = Arc::new(Shaders::new(device.clone())?);
-        let (swapchain, images) = {
+        let (mut swapchain, images) = {
             let caps = surface.capabilities(physical).unwrap();
             let alpha = caps.supported_composite_alpha.iter().next().unwrap();
             let format = caps.supported_formats[0].0;
@@ -121,226 +122,188 @@ impl Engine {
             depth_stencil: {depth}
         }
         )?);
-        let (pipeline, framebuffers) = Self::window_size_dependent_setup(
+        let (mut pipeline, mut framebuffers) = Self::window_size_dependent_setup(
             &images,
             render_pass.clone(),
             device.clone(),
             shaders.clone(),
         )?;
-
-        Ok(Self {
-            world: Mutex::new(world),
-            physical_index,
-            event_loop,
-            device,
-            queue,
-            surface,
-            shaders,
-            render_pass,
-            pipeline,
-            swapchain,
-            images,
-            framebuffers,
-        })
-    }
-
-    pub fn first_device(world: Arc<World>) -> Result<Self, Error> {
-        Self::new(world, 0)
-    }
-
-    pub fn run(mut self) {
-        let mut recreate_swapchain = false;
-        let mut previous_frame_end = Some(sync::now(self.device.clone()).boxed());
+        let engine = self.clone();
         let uniform_buffer =
-            CpuBufferPool::<vertex::ty::Data>::new(self.device.clone(), BufferUsage::all());
+            CpuBufferPool::<vertex::ty::Data>::new(device.clone(), BufferUsage::all());
+        let mut recreate_swapchain = false;
+        let mut previous_frame_end = Some(sync::now(device.clone()).boxed());
 
-        self.event_loop
-            .run(move |event, _, control_flow| match event {
-                Event::WindowEvent {
-                    event: WindowEvent::CloseRequested,
-                    ..
-                } => *control_flow = ControlFlow::Exit,
+        event_loop.run(move |event, _, control_flow| match event {
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            } => *control_flow = ControlFlow::Exit,
 
-                Event::WindowEvent {
-                    event: WindowEvent::Resized(_),
-                    ..
-                } => {
-                    recreate_swapchain = true;
+            Event::WindowEvent {
+                event: WindowEvent::Resized(_),
+                ..
+            } => {
+                recreate_swapchain = true;
+            }
+
+            Event::RedrawEventsCleared => {
+                previous_frame_end.as_mut().unwrap().cleanup_finished();
+
+                let dimensions: [u32; 2] = surface.window().inner_size().into();
+
+                if recreate_swapchain {
+                    let (new_swapchain, new_images) =
+                        match swapchain.recreate().dimensions(dimensions).build() {
+                            Ok(r) => r,
+                            Err(SwapchainCreationError::UnsupportedDimensions) => return,
+                            Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
+                        };
+
+                    swapchain = new_swapchain;
+
+                    let (new_pipeline, new_framebuffers) = Self::window_size_dependent_setup(
+                        &new_images,
+                        render_pass.clone(),
+                        device.clone(),
+                        shaders.clone(),
+                    )
+                    .unwrap();
+
+                    pipeline = new_pipeline;
+                    framebuffers = new_framebuffers;
+
+                    recreate_swapchain = false;
                 }
 
-                Event::RedrawEventsCleared => {
-                    previous_frame_end.as_mut().unwrap().cleanup_finished();
+                for entity in &*engine.world.lock().unwrap().entities().lock().unwrap() {
+                    let uniform_buffer_subbuffer = {
+                        let rotation = Matrix3::from_angle_y(Rad(0.0));
+                        let aspect_ratio = dimensions[0] as f32 / dimensions[1] as f32;
+                        let proj = cgmath::perspective(
+                            Rad(std::f32::consts::FRAC_PI_2),
+                            aspect_ratio,
+                            0.01,
+                            100.0,
+                        );
+                        let view = Matrix4::look_at_rh(
+                            Point3::new(0.3, 0.3, 1.0),
+                            Point3::new(0.0, 0.0, 0.0),
+                            Vector3::new(0.0, -1.0, 0.0),
+                        );
+                        let scale = Matrix4::from_scale(0.01);
 
-                    let dimensions: [u32; 2] = self.surface.window().inner_size().into();
+                        let uniform_data = vertex::ty::Data {
+                            world: Matrix4::from(rotation).into(),
+                            view: (view * scale).into(),
+                            proj: proj.into(),
+                        };
 
-                    if recreate_swapchain {
-                        let (new_swapchain, new_images) =
-                            match self.swapchain.recreate().dimensions(dimensions).build() {
+                        Arc::new(uniform_buffer.next(uniform_data).unwrap())
+                    };
+                    let layout = pipeline.layout().descriptor_set_layouts().get(0).unwrap();
+                    let mut set_builder = PersistentDescriptorSet::start(layout.clone());
+
+                    set_builder.add_buffer(uniform_buffer_subbuffer).unwrap();
+
+                    let set = Arc::new(set_builder.build().unwrap());
+
+                    for mesh in entity
+                        .get_type::<Mesh>(Arc::new("mesh".to_string()))
+                        .as_ref()
+                    {
+                        let (image_num, suboptimal, acquire_future) =
+                            match swapchain::acquire_next_image(swapchain.clone(), None) {
                                 Ok(r) => r,
-                                Err(SwapchainCreationError::UnsupportedDimensions) => return,
-                                Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
+                                Err(AcquireError::OutOfDate) => {
+                                    recreate_swapchain = true;
+                                    return;
+                                }
+                                Err(e) => panic!("Failed to acquire next image: {:?}", e),
                             };
 
-                        self.swapchain = new_swapchain;
-                        self.images = new_images;
+                        if suboptimal {
+                            recreate_swapchain = true;
+                        }
 
-                        let (new_pipeline, new_framebuffers) = Self::window_size_dependent_setup(
-                            &self.images,
-                            self.render_pass.clone(),
-                            self.device.clone(),
-                            self.shaders.clone(),
+                        let normal_buffer = CpuAccessibleBuffer::from_iter(
+                            device.clone(),
+                            BufferUsage::all(),
+                            false,
+                            mesh.asset.normals.iter().cloned(),
+                        )
+                        .unwrap();
+                        let vertex_buffer = CpuAccessibleBuffer::from_iter(
+                            device.clone(),
+                            BufferUsage::all(),
+                            false,
+                            mesh.asset.vertices.iter().cloned(),
+                        )
+                        .unwrap();
+                        let index_buffer = CpuAccessibleBuffer::from_iter(
+                            device.clone(),
+                            BufferUsage::all(),
+                            false,
+                            mesh.asset.indices.iter().cloned(),
+                        )
+                        .unwrap();
+                        let mut builder = AutoCommandBufferBuilder::primary(
+                            device.clone(),
+                            queue.family(),
+                            CommandBufferUsage::OneTimeSubmit,
                         )
                         .unwrap();
 
-                        self.pipeline = new_pipeline;
-                        self.framebuffers = new_framebuffers;
-
-                        recreate_swapchain = false;
-                    }
-
-                    for entity in &*self.world.lock().unwrap().entities().lock().unwrap() {
-                        let uniform_buffer_subbuffer = {
-                            let rotation = Matrix3::from_angle_y(Rad(0.0));
-                            let aspect_ratio = dimensions[0] as f32 / dimensions[1] as f32;
-                            let proj = cgmath::perspective(
-                                Rad(std::f32::consts::FRAC_PI_2),
-                                aspect_ratio,
-                                0.01,
-                                100.0,
-                            );
-                            let view = Matrix4::look_at_rh(
-                                Point3::new(0.3, 0.3, 1.0),
-                                Point3::new(0.0, 0.0, 0.0),
-                                Vector3::new(0.0, -1.0, 0.0),
-                            );
-                            let scale = Matrix4::from_scale(0.01);
-
-                            let uniform_data = vertex::ty::Data {
-                                world: Matrix4::from(rotation).into(),
-                                view: (view * scale).into(),
-                                proj: proj.into(),
-                            };
-
-                            Arc::new(uniform_buffer.next(uniform_data).unwrap())
-                        };
-                        let layout = self
-                            .pipeline
-                            .layout()
-                            .descriptor_set_layouts()
-                            .get(0)
+                        builder
+                            .begin_render_pass(
+                                framebuffers[image_num].clone(),
+                                SubpassContents::Inline,
+                                vec![[0.0, 0.0, 1.0, 1.0].into(), 1_f32.into()],
+                            )
+                            .unwrap()
+                            .bind_pipeline_graphics(pipeline.clone())
+                            .bind_descriptor_sets(
+                                PipelineBindPoint::Graphics,
+                                pipeline.layout().clone(),
+                                0,
+                                set.clone(),
+                            )
+                            .bind_vertex_buffers(0, (vertex_buffer.clone(), normal_buffer.clone()))
+                            .bind_index_buffer(index_buffer.clone())
+                            .draw_indexed(index_buffer.len() as u32, 1, 0, 0, 0)
+                            .unwrap()
+                            .end_render_pass()
                             .unwrap();
-                        let mut set_builder = PersistentDescriptorSet::start(layout.clone());
 
-                        set_builder.add_buffer(uniform_buffer_subbuffer).unwrap();
+                        let command_buffer = builder.build().unwrap();
 
-                        let set = Arc::new(set_builder.build().unwrap());
+                        let future = previous_frame_end
+                            .take()
+                            .unwrap()
+                            .join(acquire_future)
+                            .then_execute(queue.clone(), command_buffer)
+                            .unwrap()
+                            .then_swapchain_present(queue.clone(), swapchain.clone(), image_num)
+                            .then_signal_fence_and_flush();
 
-                        for mesh in entity
-                            .get_type::<Mesh>(Arc::new("mesh".to_string()))
-                            .as_ref()
-                        {
-                            let (image_num, suboptimal, acquire_future) =
-                                match swapchain::acquire_next_image(self.swapchain.clone(), None) {
-                                    Ok(r) => r,
-                                    Err(AcquireError::OutOfDate) => {
-                                        recreate_swapchain = true;
-                                        return;
-                                    }
-                                    Err(e) => panic!("Failed to acquire next image: {:?}", e),
-                                };
-
-                            if suboptimal {
-                                recreate_swapchain = true;
+                        match future {
+                            Ok(future) => {
+                                previous_frame_end = Some(future.boxed());
                             }
-
-                            let normal_buffer = CpuAccessibleBuffer::from_iter(
-                                self.device.clone(),
-                                BufferUsage::all(),
-                                false,
-                                mesh.normals.iter().cloned(),
-                            )
-                            .unwrap();
-                            let vertex_buffer = CpuAccessibleBuffer::from_iter(
-                                self.device.clone(),
-                                BufferUsage::all(),
-                                false,
-                                mesh.vertices.iter().cloned(),
-                            )
-                            .unwrap();
-                            let index_buffer = CpuAccessibleBuffer::from_iter(
-                                self.device.clone(),
-                                BufferUsage::all(),
-                                false,
-                                mesh.indices.iter().cloned(),
-                            )
-                            .unwrap();
-                            let mut builder = AutoCommandBufferBuilder::primary(
-                                self.device.clone(),
-                                self.queue.family(),
-                                CommandBufferUsage::OneTimeSubmit,
-                            )
-                            .unwrap();
-
-                            builder
-                                .begin_render_pass(
-                                    self.framebuffers[image_num].clone(),
-                                    SubpassContents::Inline,
-                                    vec![[0.0, 0.0, 1.0, 1.0].into(), 1_f32.into()],
-                                )
-                                .unwrap()
-                                .bind_pipeline_graphics(self.pipeline.clone())
-                                .bind_descriptor_sets(
-                                    PipelineBindPoint::Graphics,
-                                    self.pipeline.layout().clone(),
-                                    0,
-                                    set.clone(),
-                                )
-                                .bind_vertex_buffers(
-                                    0,
-                                    (vertex_buffer.clone(), normal_buffer.clone()),
-                                )
-                                .bind_index_buffer(index_buffer.clone())
-                                .draw_indexed(index_buffer.len() as u32, 1, 0, 0, 0)
-                                .unwrap()
-                                .end_render_pass()
-                                .unwrap();
-
-                            let command_buffer = builder.build().unwrap();
-
-                            let future = previous_frame_end
-                                .take()
-                                .unwrap()
-                                .join(acquire_future)
-                                .then_execute(self.queue.clone(), command_buffer)
-                                .unwrap()
-                                .then_swapchain_present(
-                                    self.queue.clone(),
-                                    self.swapchain.clone(),
-                                    image_num,
-                                )
-                                .then_signal_fence_and_flush();
-
-                            match future {
-                                Ok(future) => {
-                                    previous_frame_end = Some(future.boxed());
-                                }
-                                Err(FlushError::OutOfDate) => {
-                                    recreate_swapchain = true;
-                                    previous_frame_end =
-                                        Some(sync::now(self.device.clone()).boxed());
-                                }
-                                Err(e) => {
-                                    println!("Failed to flush future: {:?}", e);
-                                    previous_frame_end =
-                                        Some(sync::now(self.device.clone()).boxed());
-                                }
+                            Err(FlushError::OutOfDate) => {
+                                recreate_swapchain = true;
+                                previous_frame_end = Some(sync::now(device.clone()).boxed());
+                            }
+                            Err(e) => {
+                                println!("Failed to flush future: {:?}", e);
+                                previous_frame_end = Some(sync::now(device.clone()).boxed());
                             }
                         }
                     }
                 }
-
-                _ => {}
-            });
+            }
+            _ => {}
+        });
     }
 
     fn window_size_dependent_setup(
@@ -404,29 +367,5 @@ impl Engine {
 
     pub fn physical_index(&self) -> usize {
         self.physical_index
-    }
-
-    pub fn device(&self) -> Arc<Device> {
-        self.device.clone()
-    }
-
-    pub fn queue(&self) -> Arc<Queue> {
-        self.queue.clone()
-    }
-
-    pub fn surface(&self) -> Arc<Surface> {
-        self.surface.clone()
-    }
-
-    pub fn shaders(&self) -> Arc<Shaders> {
-        self.shaders.clone()
-    }
-
-    pub fn render_pass(&self) -> Arc<RenderPass> {
-        self.render_pass.clone()
-    }
-
-    pub fn pipeline(&self) -> Arc<GraphicsPipeline> {
-        self.pipeline.clone()
     }
 }

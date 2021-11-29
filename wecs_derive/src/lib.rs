@@ -28,7 +28,7 @@ pub fn component(input: TokenStream) -> TokenStream {
             }
 
             fn as_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync + 'static> {
-                self.clone()
+                self
             }
         }
     };

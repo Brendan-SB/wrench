@@ -5,7 +5,7 @@ use crate::{
     error::Error,
     shaders::{vertex, Shaders},
 };
-use cgmath::{Matrix4, Point3, Rad, Vector3};
+use cgmath::{Matrix3, Matrix4, Point3, Rad, Vector3};
 use std::sync::{Arc, Mutex};
 use vulkano::{
     buffer::{cpu_pool::CpuBufferPool, BufferUsage, CpuAccessibleBuffer, TypedBufferAccess},
@@ -182,6 +182,10 @@ impl Engine {
                             entity.get_first::<Transform>(Arc::new("transform".to_string()))
                         {
                             let uniform_buffer_subbuffer = {
+                                let rotation = Matrix3::from_angle_x(Rad(transform.rotation.x))
+                                            * Matrix3::from_angle_y(Rad(transform.rotation.y))
+                                            * Matrix3::from_angle_z(Rad(transform.rotation.z));
+
                                 let aspect_ratio = dimensions[0] as f32 / dimensions[1] as f32;
                                 let proj = cgmath::perspective(
                                     Rad(std::f32::consts::FRAC_PI_2),
@@ -189,27 +193,17 @@ impl Engine {
                                     0.01,
                                     100.0,
                                 );
-                                let view = Matrix4::look_at_lh(
+                                let view = Matrix4::look_at_rh(
                                     Point3::new(0.3, 0.3, 1.0),
                                     Point3::new(0.0, 0.0, 0.0),
                                     Vector3::new(0.0, -1.0, 0.0),
                                 );
                                 let scale = Matrix4::from_scale(0.01);
-
                                 let uniform_data = vertex::ty::Data {
-                                    transform: vertex::ty::Transform {
-                                        position: transform.position.into(),
-                                        rotation: vertex::ty::Rotation {
-                                            x: Matrix4::from_angle_x(Rad(transform.rotation.x))
-                                                .into(),
-                                            y: Matrix4::from_angle_y(Rad(transform.rotation.y))
-                                                .into(),
-                                            z: Matrix4::from_angle_z(Rad(transform.rotation.z))
-                                                .into(),
-                                        },
-                                    },
+                                    world: Matrix4::from(rotation).into(),
                                     view: (view * scale).into(),
                                     proj: proj.into(),
+                                    position: transform.position.into(),
                                 };
 
                                 Arc::new(uniform_buffer.next(uniform_data).unwrap())

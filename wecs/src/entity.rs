@@ -43,11 +43,11 @@ impl Entity {
         self.components.clone()
     }
 
-    pub fn get_type<T>(&self, type_id: Arc<String>) -> Option<Arc<Vec<Arc<T>>>>
+    pub fn get_type<T>(&self, tid: Arc<String>) -> Option<Arc<Vec<Arc<T>>>>
     where
         T: Component + Send + Sync + 'static,
     {
-        match self.components.lock().unwrap().get(&type_id) {
+        match self.components.lock().unwrap().get(&tid) {
             Some(components) => Some(Arc::new(
                 components
                     .lock()
@@ -62,11 +62,11 @@ impl Entity {
         }
     }
 
-    pub fn get<T>(&self, type_id: Arc<String>, id: Arc<String>) -> Option<Arc<Vec<Arc<T>>>>
+    pub fn get<T>(&self, tid: Arc<String>, id: Arc<String>) -> Option<Arc<Vec<Arc<T>>>>
     where
         T: Component + Send + Sync + 'static,
     {
-        match self.components.lock().unwrap().get(&type_id) {
+        match self.components.lock().unwrap().get(&tid) {
             Some(components) => Some(Arc::new(
                 components
                     .lock()
@@ -82,11 +82,11 @@ impl Entity {
         }
     }
 
-    pub fn get_first<T>(&self, type_id: Arc<String>) -> Option<Arc<T>>
+    pub fn get_first<T>(&self, tid: Arc<String>) -> Option<Arc<T>>
     where
         T: Component + Send + Sync + 'static,
     {
-        match self.get_type::<T>(type_id) {
+        match self.get_type::<T>(tid) {
             Some(components) => match components.first() {
                 Some(component) => {
                     Some(component.clone())
@@ -100,13 +100,13 @@ impl Entity {
     }
 
     pub fn remove(&self, component: Arc<dyn Component>) {
-        self.remove_by_id(component.tid().clone(), component.id().clone());
+        self.remove_by_id(component.tid(), component.id());
     }
 
-    pub fn remove_by_id(&self, type_id: Arc<String>, id: Arc<String>) {
+    pub fn remove_by_id(&self, tid: Arc<String>, id: Arc<String>) {
         let mut components = self.components.lock().unwrap();
 
-        if let Some(target) = components.get(&type_id) {
+        if let Some(target) = components.get(&tid) {
             if {
                 let mut target = target.lock().unwrap();
 
@@ -123,7 +123,7 @@ impl Entity {
                 target.is_empty()
             }
             {
-                components.remove(&type_id);
+                components.remove(&tid);
             }
         }
     }

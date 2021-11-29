@@ -1,8 +1,5 @@
 use crate::Entity;
-use std::{
-    ops::Deref,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 pub struct World {
     entities: Arc<Mutex<Vec<Arc<Entity>>>>,
@@ -32,9 +29,7 @@ impl World {
         self.entities.clone()
     }
 
-    pub fn remove<T>(&self, entity: T)
-    where
-        T: Deref<Target = Entity>,
+    pub fn remove<T>(&self, entity: Arc<Entity>)
     {
         self.remove_by_id(entity.id.clone());
     }

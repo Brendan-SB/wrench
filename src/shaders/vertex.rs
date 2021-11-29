@@ -4,21 +4,35 @@ vulkano_shaders::shader! {
     "
     #version 450
 
+    struct Rotation {
+        mat4 x;
+        mat4 y;
+        mat4 z;
+    };
+
+    struct Transform {
+        Rotation rotation;
+        vec3 position;
+    };
+
     layout(location = 0) in vec3 position;
     layout(location = 1) in vec3 normal;
-
     layout(location = 0) out vec3 v_normal;
 
     layout(set = 0, binding = 0) uniform Data {
-        mat4 world;
         mat4 view;
         mat4 proj;
+        Transform transform;
     } uniforms;
 
     void main() {
-        mat4 worldview = uniforms.view * uniforms.world;
-        v_normal = transpose(inverse(mat3(worldview))) * normal;
-        gl_Position = uniforms.proj * worldview * vec4(position, 1.0);
+        v_normal = transpose(inverse(mat3(uniforms.view))) * normal;
+        gl_Position = uniforms.view
+            * uniforms.transform.rotation.x
+            * uniforms.transform.rotation.y
+            * uniforms.transform.rotation.z 
+            * uniforms.proj
+            * vec4(position - uniforms.transform.position, 1.0);
     }
     "
 }

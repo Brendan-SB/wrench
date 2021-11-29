@@ -37,7 +37,9 @@ impl Entity {
         }
     }
 
-    pub fn components(&self) -> Arc<Mutex<HashMap<Arc<String>, Arc<Mutex<Vec<Arc<dyn Component + Send + Sync>>>>>>> {
+    pub fn components(
+        &self,
+    ) -> Arc<Mutex<HashMap<Arc<String>, Arc<Mutex<Vec<Arc<dyn Component + Send + Sync>>>>>>> {
         self.components.clone()
     }
 
@@ -53,8 +55,8 @@ impl Entity {
                     .clone()
                     .into_iter()
                     .map(|c| c.as_any().downcast::<T>().unwrap())
-                    .collect::<Vec<Arc<T>>>())
-            ),
+                    .collect::<Vec<Arc<T>>>(),
+            )),
 
             None => None,
         }
@@ -73,8 +75,25 @@ impl Entity {
                     .into_iter()
                     .filter(|c| *c.id() == *id)
                     .map(|c| c.as_any().downcast::<T>().unwrap())
-                    .collect::<Vec<Arc<T>>>()),
-            ),
+                    .collect::<Vec<Arc<T>>>(),
+            )),
+
+            None => None,
+        }
+    }
+
+    pub fn get_first<T>(&self, type_id: Arc<String>) -> Option<Arc<T>>
+    where
+        T: Component + Send + Sync + 'static,
+    {
+        match self.get_type::<T>(type_id) {
+            Some(components) => match components.first() {
+                Some(component) => {
+                    Some(component.clone())
+                }
+
+                None => None,
+            }
 
             None => None,
         }
@@ -85,20 +104,27 @@ impl Entity {
     }
 
     pub fn remove_by_id(&self, type_id: Arc<String>, id: Arc<String>) {
-        let components = self.components.lock().unwrap();
+        let mut components = self.components.lock().unwrap();
 
-        if let Some(components) = components.get(&type_id) {
-            let mut components = components.lock().unwrap();
+        if let Some(target) = components.get(&type_id) {
+            if {
+                let mut target = target.lock().unwrap();
 
-            components
-                .clone()
-                .into_iter()
-                .enumerate()
-                .filter(|(_, c)| *c.id() == *id)
-                .for_each(|(i, v)| {
-                    components.remove(i);
-                    v.set_entity(None);
-                })
+                target
+                    .clone()
+                    .into_iter()
+                    .enumerate()
+                    .filter(|(_, c)| *c.id() == *id)
+                    .for_each(|(i, v)| {
+                        target.remove(i);
+                        v.set_entity(None);
+                    });
+
+                target.is_empty()
+            }
+            {
+                components.remove(&type_id);
+            }
         }
     }
 }

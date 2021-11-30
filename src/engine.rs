@@ -151,8 +151,8 @@ impl Engine {
                 previous_frame_end.as_mut().unwrap().cleanup_finished();
 
                 for entity in &*engine.world.lock().unwrap().entities().lock().unwrap() {
-                    for (_, group) in &*entity.components().lock().unwrap() {
-                        for component in &*group.lock().unwrap() {
+                    for (_, v) in &*entity.components().lock().unwrap() {
+                        for component in &*v.lock().unwrap() {
                             component.on_update();
                         }
                     }

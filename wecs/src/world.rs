@@ -12,7 +12,7 @@ impl World {
         })
     }
 
-    pub fn create(self: Arc<Self>, id: Arc<String>) -> Arc<Entity> {
+    pub fn create(self: &Arc<Self>, id: Arc<String>) -> Arc<Entity> {
         let entity = Entity::new(id, Mutex::new(Some(self.clone())));
         let mut entities = self.entities.lock().unwrap();
 

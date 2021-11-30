@@ -19,7 +19,7 @@ impl Entity {
         })
     }
 
-    pub fn add(self: Arc<Self>, component: Arc<dyn Component + Send + Sync>) {
+    pub fn add(self: &Arc<Self>, component: Arc<dyn Component + Send + Sync>) {
         let mut components = self.components.lock().unwrap();
 
         component.set_entity(Some(self.clone()));

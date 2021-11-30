@@ -150,6 +150,14 @@ impl Engine {
             Event::RedrawEventsCleared => {
                 previous_frame_end.as_mut().unwrap().cleanup_finished();
 
+                for entity in &*engine.world.lock().unwrap().entities().lock().unwrap() {
+                    for (_, group) in &*entity.components().lock().unwrap() {
+                        for component in &*group.lock().unwrap() {
+                            component.on_update();
+                        }
+                    }
+                }
+
                 let dimensions: [u32; 2] = surface.window().inner_size().into();
 
                 if recreate_swapchain {

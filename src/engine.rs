@@ -227,10 +227,13 @@ impl Engine {
                                 let (image_num, suboptimal, acquire_future) =
                                     match swapchain::acquire_next_image(swapchain.clone(), None) {
                                         Ok(r) => r,
+
                                         Err(AcquireError::OutOfDate) => {
                                             recreate_swapchain = true;
+
                                             return;
                                         }
+
                                         Err(e) => panic!("Failed to acquire next image: {:?}", e),
                                     };
 
@@ -316,6 +319,7 @@ impl Engine {
                                     }
                                     Err(e) => {
                                         println!("Failed to flush future: {:?}", e);
+
                                         previous_frame_end =
                                             Some(sync::now(device.clone()).boxed());
                                     }

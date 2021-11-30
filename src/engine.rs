@@ -294,7 +294,6 @@ impl Engine {
                                     .unwrap();
 
                                 let command_buffer = builder.build().unwrap();
-
                                 let future = previous_frame_end
                                     .take()
                                     .unwrap()

@@ -6,20 +6,27 @@ use crate::{
     shaders::{vertex, Shaders},
 };
 use cgmath::{Matrix3, Matrix4, Point3, Rad, Vector3};
-use std::sync::{Arc, Mutex};
+use std::{
+    io::Cursor,
+    sync::{Arc, Mutex},
+};
 use vulkano::{
     buffer::{cpu_pool::CpuBufferPool, BufferUsage, CpuAccessibleBuffer, TypedBufferAccess},
     command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, SubpassContents},
     descriptor_set::persistent::PersistentDescriptorSet,
     device::{physical::PhysicalDevice, Device, DeviceExtensions},
     format::Format,
-    image::{attachment::AttachmentImage, view::ImageView, ImageUsage, SwapchainImage},
+    image::{
+        attachment::AttachmentImage, view::ImageView, ImageDimensions, ImageUsage, ImmutableImage,
+        MipmapsCount, SwapchainImage,
+    },
     instance::Instance,
     pipeline::{
         depth_stencil::DepthStencil, vertex::BuffersDefinition, viewport::Viewport,
         GraphicsPipeline, PipelineBindPoint,
     },
     render_pass::{Framebuffer, FramebufferAbstract, RenderPass, Subpass},
+    sampler::{Filter, MipmapMode, Sampler, SamplerAddressMode},
     swapchain::{
         self, AcquireError, ColorSpace, SurfaceTransform, Swapchain, SwapchainCreationError,
     },
@@ -36,15 +43,15 @@ use winit::{
 pub type Surface = swapchain::Surface<Window>;
 
 pub struct Engine {
-    pub world: Mutex<Arc<World>>,
     physical_index: usize,
+    pub world: Mutex<Arc<World>>,
 }
 
 impl Engine {
     pub fn new(physical_index: usize, world: Arc<World>) -> Arc<Self> {
         Arc::new(Self {
-            world: Mutex::new(world),
             physical_index,
+            world: Mutex::new(world),
         })
     }
 
@@ -128,11 +135,50 @@ impl Engine {
             device.clone(),
             shaders.clone(),
         )?;
+        let (texture, tex_future) = {
+            let png_bytes = include_bytes!("/home/brendan/Downloads/troll.png").to_vec();
+            let cursor = Cursor::new(png_bytes);
+            let decoder = png::Decoder::new(cursor);
+            let mut reader = decoder.read_info().unwrap();
+            let info = reader.info();
+            let dimensions = ImageDimensions::Dim2d {
+                width: info.width,
+                height: info.height,
+                array_layers: 1,
+            };
+            let mut image_data = Vec::new();
+            image_data.resize((info.width * info.height * 4) as usize, 0);
+            reader.next_frame(&mut image_data).unwrap();
+
+            let (image, future) = ImmutableImage::from_iter(
+                image_data.iter().cloned(),
+                dimensions,
+                MipmapsCount::One,
+                Format::R8G8B8A8_SRGB,
+                queue.clone(),
+            )
+            .unwrap();
+            (ImageView::new(image).unwrap(), future)
+        };
+        let sampler = Sampler::new(
+            device.clone(),
+            Filter::Linear,
+            Filter::Linear,
+            MipmapMode::Nearest,
+            SamplerAddressMode::Repeat,
+            SamplerAddressMode::Repeat,
+            SamplerAddressMode::Repeat,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+        )
+        .unwrap();
         let engine = self.clone();
         let uniform_buffer =
             CpuBufferPool::<vertex::ty::Data>::new(device.clone(), BufferUsage::all());
         let mut recreate_swapchain = false;
-        let mut previous_frame_end = Some(sync::now(device.clone()).boxed());
+        let mut previous_frame_end = Some(tex_future.boxed());
 
         event_loop.run(move |event, _, control_flow| match event {
             Event::WindowEvent {
@@ -191,8 +237,8 @@ impl Engine {
                         {
                             let uniform_buffer_subbuffer = {
                                 let rotation = Matrix3::from_angle_x(Rad(transform.rotation.x))
-                                            * Matrix3::from_angle_y(Rad(transform.rotation.y))
-                                            * Matrix3::from_angle_z(Rad(transform.rotation.z));
+                                    * Matrix3::from_angle_y(Rad(transform.rotation.y))
+                                    * Matrix3::from_angle_z(Rad(transform.rotation.z));
 
                                 let aspect_ratio = dimensions[0] as f32 / dimensions[1] as f32;
                                 let proj = cgmath::perspective(
@@ -216,10 +262,16 @@ impl Engine {
 
                                 Arc::new(uniform_buffer.next(uniform_data).unwrap())
                             };
-                            let layout = pipeline.layout().descriptor_set_layouts().get(0).unwrap();
-                            let mut set_builder = PersistentDescriptorSet::start(layout.clone());
+                            let set_layouts = pipeline.layout().descriptor_set_layouts();
+                            let set_layout = set_layouts.get(0).unwrap();
+                            let mut set_builder =
+                                PersistentDescriptorSet::start(set_layout.clone());
 
-                            set_builder.add_buffer(uniform_buffer_subbuffer).unwrap();
+                            set_builder
+                                .add_buffer(uniform_buffer_subbuffer)
+                                .unwrap()
+                                .add_sampled_image(texture.clone(), sampler.clone())
+                                .unwrap();
 
                             let set = Arc::new(set_builder.build().unwrap());
 

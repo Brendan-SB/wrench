@@ -1,6 +1,6 @@
 use crate::{
     assets::mesh::{Normal, Vertex},
-    components::{Model, Transform},
+    components::Model,
     ecs::World,
     error::Error,
     shaders::{vertex, Shaders},
@@ -183,6 +183,14 @@ impl Engine {
 
                 Event::RedrawEventsCleared => {
                     previous_frame_end.as_mut().unwrap().cleanup_finished();
+                    
+                    for entity in &*self.world.lock().unwrap().entities().lock().unwrap() {
+                        for (_, v) in &*entity.components().lock().unwrap() {
+                            for component in &*v.lock().unwrap() {
+                                component.on_update();
+                            }
+                        }
+                    }
 
                     let dimensions: [u32; 2] = self.surface.window().inner_size().into();
                     let mut pipeline = self.pipeline.lock().unwrap();
@@ -243,104 +251,91 @@ impl Engine {
                         .unwrap();
 
                     for entity in &*self.world.lock().unwrap().entities().lock().unwrap() {
-                        for (_, v) in &*entity.components().lock().unwrap() {
-                            for component in &*v.lock().unwrap() {
-                                component.on_update();
-                            }
-                        }
-
                         if let Some(models) =
                             entity.get_type::<Model>(Arc::new("model".to_string()))
                         {
-                            if let Some(transform) =
-                                entity.get_first::<Transform>(Arc::new("transform".to_string()))
-                            {
-                                for model in &*models {
-                                    let uniform_buffer_subbuffer = {
-                                        let rotation =
-                                            Matrix3::from_angle_x(Rad(transform.rotation.x))
-                                                * Matrix3::from_angle_y(Rad(transform.rotation.y))
-                                                * Matrix3::from_angle_z(Rad(transform.rotation.z));
-                                        let aspect_ratio =
-                                            dimensions[0] as f32 / dimensions[1] as f32;
-                                        let proj = cgmath::perspective(
-                                            Rad(std::f32::consts::FRAC_PI_2),
-                                            aspect_ratio,
-                                            0.01,
-                                            100.0,
-                                        );
-                                        let view = Matrix4::look_at_rh(
-                                            Point3::new(0.3, 0.3, 1.0),
-                                            Point3::new(0.0, 0.0, 0.0),
-                                            Vector3::new(0.0, -1.0, 0.0),
-                                        );
-                                        let scale = Matrix4::from_scale(0.01);
-                                        let uniform_data = vertex::ty::Data {
-                                            world: Matrix4::from(rotation).into(),
-                                            view: (view * scale).into(),
-                                            proj: proj.into(),
-                                            position: transform.position.into(),
-                                        };
-
-                                        Arc::new(uniform_buffer.next(uniform_data).unwrap())
+                            for model in &*models {
+                                let rotation = model.transform.rotation.lock().unwrap();
+                                let uniform_buffer_subbuffer = {
+                                    let rotation_mat = Matrix3::from_angle_x(Rad(rotation
+                                        .x))
+                                        * Matrix3::from_angle_y(Rad(rotation.y))
+                                        * Matrix3::from_angle_z(Rad(rotation.z));
+                                    let aspect_ratio = dimensions[0] as f32 / dimensions[1] as f32;
+                                    let proj = cgmath::perspective(
+                                        Rad(std::f32::consts::FRAC_PI_2),
+                                        aspect_ratio,
+                                        0.01,
+                                        100.0,
+                                    );
+                                    let view = Matrix4::look_at_rh(
+                                        Point3::new(0.3, 0.3, 1.0),
+                                        Point3::new(0.0, 0.0, 0.0),
+                                        Vector3::new(0.0, -1.0, 0.0),
+                                    );
+                                    let scale = Matrix4::from_scale(0.01);
+                                    let uniform_data = vertex::ty::Data {
+                                        world: Matrix4::from(rotation_mat).into(),
+                                        view: (view * scale).into(),
+                                        proj: proj.into(),
+                                        position: (*model.transform.position.lock().unwrap()).into(),
                                     };
-                                    let set_layouts = pipeline.layout().descriptor_set_layouts();
-                                    let set_layout = set_layouts.get(0).unwrap();
-                                    let mut set_builder =
-                                        PersistentDescriptorSet::start(set_layout.clone());
 
-                                    set_builder
-                                        .add_buffer(uniform_buffer_subbuffer)
-                                        .unwrap()
-                                        .add_sampled_image(
-                                            model.texture.image.clone(),
-                                            sampler.clone(),
-                                        )
-                                        .unwrap();
+                                    Arc::new(uniform_buffer.next(uniform_data).unwrap())
+                                };
+                                let set_layouts = pipeline.layout().descriptor_set_layouts();
+                                let set_layout = set_layouts.get(0).unwrap();
+                                let mut set_builder =
+                                    PersistentDescriptorSet::start(set_layout.clone());
 
-                                    let set = Arc::new(set_builder.build().unwrap());
-
-                                    if suboptimal {
-                                        recreate_swapchain = true;
-                                    }
-
-                                    let normal_buffer = CpuAccessibleBuffer::from_iter(
-                                        self.device.clone(),
-                                        BufferUsage::all(),
-                                        false,
-                                        model.asset.normals.iter().cloned(),
-                                    )
-                                    .unwrap();
-                                    let vertex_buffer = CpuAccessibleBuffer::from_iter(
-                                        self.device.clone(),
-                                        BufferUsage::all(),
-                                        false,
-                                        model.asset.vertices.iter().cloned(),
-                                    )
-                                    .unwrap();
-                                    let index_buffer = CpuAccessibleBuffer::from_iter(
-                                        self.device.clone(),
-                                        BufferUsage::all(),
-                                        false,
-                                        model.asset.indices.iter().cloned(),
-                                    )
+                                set_builder
+                                    .add_buffer(uniform_buffer_subbuffer)
+                                    .unwrap()
+                                    .add_sampled_image(model.texture.image.clone(), sampler.clone())
                                     .unwrap();
 
-                                    builder
-                                        .bind_descriptor_sets(
-                                            PipelineBindPoint::Graphics,
-                                            pipeline.layout().clone(),
-                                            0,
-                                            set.clone(),
-                                        )
-                                        .bind_vertex_buffers(
-                                            0,
-                                            (vertex_buffer.clone(), normal_buffer.clone()),
-                                        )
-                                        .bind_index_buffer(index_buffer.clone())
-                                        .draw_indexed(index_buffer.len() as u32, 1, 0, 0, 0)
-                                        .unwrap();
+                                let set = Arc::new(set_builder.build().unwrap());
+
+                                if suboptimal {
+                                    recreate_swapchain = true;
                                 }
+
+                                let normal_buffer = CpuAccessibleBuffer::from_iter(
+                                    self.device.clone(),
+                                    BufferUsage::all(),
+                                    false,
+                                    model.asset.normals.iter().cloned(),
+                                )
+                                .unwrap();
+                                let vertex_buffer = CpuAccessibleBuffer::from_iter(
+                                    self.device.clone(),
+                                    BufferUsage::all(),
+                                    false,
+                                    model.asset.vertices.iter().cloned(),
+                                )
+                                .unwrap();
+                                let index_buffer = CpuAccessibleBuffer::from_iter(
+                                    self.device.clone(),
+                                    BufferUsage::all(),
+                                    false,
+                                    model.asset.indices.iter().cloned(),
+                                )
+                                .unwrap();
+
+                                builder
+                                    .bind_descriptor_sets(
+                                        PipelineBindPoint::Graphics,
+                                        pipeline.layout().clone(),
+                                        0,
+                                        set.clone(),
+                                    )
+                                    .bind_vertex_buffers(
+                                        0,
+                                        (vertex_buffer.clone(), normal_buffer.clone()),
+                                    )
+                                    .bind_index_buffer(index_buffer.clone())
+                                    .draw_indexed(index_buffer.len() as u32, 1, 0, 0, 0)
+                                    .unwrap();
                             }
                         }
                     }

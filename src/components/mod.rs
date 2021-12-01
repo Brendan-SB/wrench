@@ -1,5 +1,5 @@
-pub mod mesh;
+pub mod model;
 pub mod transform;
 
-pub use mesh::Mesh;
+pub use model::Model;
 pub use transform::Transform;

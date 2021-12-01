@@ -1,15 +1,12 @@
 use std::{io::Cursor, sync::Arc};
 use vulkano::{
-    image::{
-        view::ImageView, ImageDimensions, ImmutableImage,
-        MipmapsCount
-    },
-    format::Format,
     device::Queue,
+    format::Format,
+    image::{view::ImageView, ImageDimensions, ImmutableImage, MipmapsCount},
 };
 
 pub struct Texture {
-   pub image: Arc<ImageView<Arc<ImmutableImage>>>
+    pub image: Arc<ImageView<Arc<ImmutableImage>>>,
 }
 
 impl Texture {
@@ -38,6 +35,6 @@ impl Texture {
         .unwrap();
         let image = ImageView::new(image).unwrap();
 
-        Arc::new(Self {image})
+        Arc::new(Self { image })
     }
 }

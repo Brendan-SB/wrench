@@ -13,9 +13,7 @@ use vulkano::{
     descriptor_set::persistent::PersistentDescriptorSet,
     device::{physical::PhysicalDevice, Device, DeviceExtensions, Queue},
     format::Format,
-    image::{
-        attachment::AttachmentImage, view::ImageView, ImageUsage, SwapchainImage,
-    },
+    image::{attachment::AttachmentImage, view::ImageView, ImageUsage, SwapchainImage},
     instance::Instance,
     pipeline::{
         depth_stencil::DepthStencil, vertex::BuffersDefinition, viewport::Viewport,
@@ -169,213 +167,213 @@ impl Engine {
         let mut recreate_swapchain = false;
         let mut previous_frame_end = Some(sync::now(self.device.clone()).boxed());
 
-        self.event_loop.run(move |event, _, control_flow| match event {
-            Event::WindowEvent {
-                event: WindowEvent::CloseRequested,
-                ..
-            } => *control_flow = ControlFlow::Exit,
+        self.event_loop
+            .run(move |event, _, control_flow| match event {
+                Event::WindowEvent {
+                    event: WindowEvent::CloseRequested,
+                    ..
+                } => *control_flow = ControlFlow::Exit,
 
-            Event::WindowEvent {
-                event: WindowEvent::Resized(_),
-                ..
-            } => {
-                recreate_swapchain = true;
-            }
-
-            Event::RedrawEventsCleared => {
-                previous_frame_end.as_mut().unwrap().cleanup_finished();
-                
-                let entities = self.world.lock().unwrap().entities();
-                let entities = entities.lock().unwrap();
-
-                for entity in &*entities {
-                    for (_, v) in &*entity.components().lock().unwrap() {
-                        for component in &*v.lock().unwrap() {
-                            component.on_update();
-                        }
-                    }
+                Event::WindowEvent {
+                    event: WindowEvent::Resized(_),
+                    ..
+                } => {
+                    recreate_swapchain = true;
                 }
 
-                let dimensions: [u32; 2] = self.surface.window().inner_size().into();
-                let mut pipeline = self.pipeline.lock().unwrap();
-                let mut swapchain = self.swapchain.lock().unwrap();
-                let mut framebuffers = self.framebuffers.lock().unwrap();
+                Event::RedrawEventsCleared => {
+                    previous_frame_end.as_mut().unwrap().cleanup_finished();
 
-                if recreate_swapchain {
-                    let (new_swapchain, new_images) =
-                        match swapchain.recreate().dimensions(dimensions).build() {
+                    let dimensions: [u32; 2] = self.surface.window().inner_size().into();
+                    let mut pipeline = self.pipeline.lock().unwrap();
+                    let mut swapchain = self.swapchain.lock().unwrap();
+                    let mut framebuffers = self.framebuffers.lock().unwrap();
+
+                    if recreate_swapchain {
+                        let (new_swapchain, new_images) =
+                            match swapchain.recreate().dimensions(dimensions).build() {
+                                Ok(r) => r,
+                                Err(SwapchainCreationError::UnsupportedDimensions) => return,
+                                Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
+                            };
+
+                        *swapchain = new_swapchain;
+
+                        let (new_pipeline, new_framebuffers) = Self::window_size_dependent_setup(
+                            &new_images,
+                            self.render_pass.clone(),
+                            self.device.clone(),
+                            self.shaders.clone(),
+                        )
+                        .unwrap();
+
+                        *pipeline = new_pipeline;
+                        *framebuffers = new_framebuffers;
+
+                        recreate_swapchain = false;
+                    }
+
+                    let (image_num, suboptimal, acquire_future) =
+                        match swapchain::acquire_next_image(swapchain.clone(), None) {
                             Ok(r) => r,
-                            Err(SwapchainCreationError::UnsupportedDimensions) => return,
-                            Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
+
+                            Err(AcquireError::OutOfDate) => {
+                                recreate_swapchain = true;
+
+                                return;
+                            }
+
+                            Err(e) => panic!("Failed to acquire next image: {:?}", e),
                         };
 
-                    *swapchain = new_swapchain;
-
-                    let (new_pipeline, new_framebuffers) = Self::window_size_dependent_setup(
-                        &new_images,
-                        self.render_pass.clone(),
+                    let mut builder = AutoCommandBufferBuilder::primary(
                         self.device.clone(),
-                        self.shaders.clone(),
+                        self.queue.family(),
+                        CommandBufferUsage::OneTimeSubmit,
                     )
                     .unwrap();
 
-                    *pipeline = new_pipeline;
-                    *framebuffers = new_framebuffers;
+                    builder
+                        .bind_pipeline_graphics(pipeline.clone())
+                        .begin_render_pass(
+                            framebuffers[image_num].clone(),
+                            SubpassContents::Inline,
+                            vec![[0.0, 0.0, 1.0, 1.0].into(), 1_f32.into()],
+                        )
+                        .unwrap();
 
-                    recreate_swapchain = false;
-                }
+                    for entity in &*self.world.lock().unwrap().entities().lock().unwrap() {
+                        for (_, v) in &*entity.components().lock().unwrap() {
+                            for component in &*v.lock().unwrap() {
+                                component.on_update();
+                            }
+                        }
 
-                for entity in &*entities {
-                    if let Some(models) = entity.get_type::<Model>(Arc::new("model".to_string())) {
-                        if let Some(transform) =
-                            entity.get_first::<Transform>(Arc::new("transform".to_string()))
+                        if let Some(models) =
+                            entity.get_type::<Model>(Arc::new("model".to_string()))
                         {
-                            for model in &*models {
-                                let uniform_buffer_subbuffer = {
-                                    let rotation = Matrix3::from_angle_x(Rad(transform.rotation.x))
-                                        * Matrix3::from_angle_y(Rad(transform.rotation.y))
-                                        * Matrix3::from_angle_z(Rad(transform.rotation.z));
+                            if let Some(transform) =
+                                entity.get_first::<Transform>(Arc::new("transform".to_string()))
+                            {
+                                for model in &*models {
+                                    let uniform_buffer_subbuffer = {
+                                        let rotation =
+                                            Matrix3::from_angle_x(Rad(transform.rotation.x))
+                                                * Matrix3::from_angle_y(Rad(transform.rotation.y))
+                                                * Matrix3::from_angle_z(Rad(transform.rotation.z));
+                                        let aspect_ratio =
+                                            dimensions[0] as f32 / dimensions[1] as f32;
+                                        let proj = cgmath::perspective(
+                                            Rad(std::f32::consts::FRAC_PI_2),
+                                            aspect_ratio,
+                                            0.01,
+                                            100.0,
+                                        );
+                                        let view = Matrix4::look_at_rh(
+                                            Point3::new(0.3, 0.3, 1.0),
+                                            Point3::new(0.0, 0.0, 0.0),
+                                            Vector3::new(0.0, -1.0, 0.0),
+                                        );
+                                        let scale = Matrix4::from_scale(0.01);
+                                        let uniform_data = vertex::ty::Data {
+                                            world: Matrix4::from(rotation).into(),
+                                            view: (view * scale).into(),
+                                            proj: proj.into(),
+                                            position: transform.position.into(),
+                                        };
 
-                                    let aspect_ratio = dimensions[0] as f32 / dimensions[1] as f32;
-                                    let proj = cgmath::perspective(
-                                        Rad(std::f32::consts::FRAC_PI_2),
-                                        aspect_ratio,
-                                        0.01,
-                                        100.0,
-                                    );
-                                    let view = Matrix4::look_at_rh(
-                                        Point3::new(0.3, 0.3, 1.0),
-                                        Point3::new(0.0, 0.0, 0.0),
-                                        Vector3::new(0.0, -1.0, 0.0),
-                                    );
-                                    let scale = Matrix4::from_scale(0.01);
-                                    let uniform_data = vertex::ty::Data {
-                                        world: Matrix4::from(rotation).into(),
-                                        view: (view * scale).into(),
-                                        proj: proj.into(),
-                                        position: transform.position.into(),
+                                        Arc::new(uniform_buffer.next(uniform_data).unwrap())
                                     };
+                                    let set_layouts = pipeline.layout().descriptor_set_layouts();
+                                    let set_layout = set_layouts.get(0).unwrap();
+                                    let mut set_builder =
+                                        PersistentDescriptorSet::start(set_layout.clone());
 
-                                    Arc::new(uniform_buffer.next(uniform_data).unwrap())
-                                };
-                                let set_layouts = pipeline.layout().descriptor_set_layouts();
-                                let set_layout = set_layouts.get(0).unwrap();
-                                let mut set_builder =
-                                    PersistentDescriptorSet::start(set_layout.clone());
+                                    set_builder
+                                        .add_buffer(uniform_buffer_subbuffer)
+                                        .unwrap()
+                                        .add_sampled_image(
+                                            model.texture.image.clone(),
+                                            sampler.clone(),
+                                        )
+                                        .unwrap();
 
-                                set_builder
-                                    .add_buffer(uniform_buffer_subbuffer)
-                                    .unwrap()
-                                    .add_sampled_image(model.texture.image.clone(), sampler.clone())
-                                    .unwrap();
+                                    let set = Arc::new(set_builder.build().unwrap());
 
-                                let set = Arc::new(set_builder.build().unwrap());
-                                let (image_num, suboptimal, acquire_future) =
-                                    match swapchain::acquire_next_image(swapchain.clone(), None) {
-                                        Ok(r) => r,
-
-                                        Err(AcquireError::OutOfDate) => {
-                                            recreate_swapchain = true;
-
-                                            return;
-                                        }
-
-                                        Err(e) => panic!("Failed to acquire next image: {:?}", e),
-                                    };
-
-                                if suboptimal {
-                                    recreate_swapchain = true;
-                                }
-
-                                let normal_buffer = CpuAccessibleBuffer::from_iter(
-                                    self.device.clone(),
-                                    BufferUsage::all(),
-                                    false,
-                                    model.asset.normals.iter().cloned(),
-                                )
-                                .unwrap();
-                                let vertex_buffer = CpuAccessibleBuffer::from_iter(
-                                    self.device.clone(),
-                                    BufferUsage::all(),
-                                    false,
-                                    model.asset.vertices.iter().cloned(),
-                                )
-                                .unwrap();
-                                let index_buffer = CpuAccessibleBuffer::from_iter(
-                                    self.device.clone(),
-                                    BufferUsage::all(),
-                                    false,
-                                    model.asset.indices.iter().cloned(),
-                                )
-                                .unwrap();
-                                let mut builder = AutoCommandBufferBuilder::primary(
-                                    self.device.clone(),
-                                    self.queue.family(),
-                                    CommandBufferUsage::OneTimeSubmit,
-                                )
-                                .unwrap();
-
-                                builder
-                                    .begin_render_pass(
-                                        framebuffers[image_num].clone(),
-                                        SubpassContents::Inline,
-                                        vec![[0.0, 0.0, 1.0, 1.0].into(), 1_f32.into()],
-                                    )
-                                    .unwrap()
-                                    .bind_pipeline_graphics(pipeline.clone())
-                                    .bind_descriptor_sets(
-                                        PipelineBindPoint::Graphics,
-                                        pipeline.layout().clone(),
-                                        0,
-                                        set.clone(),
-                                    )
-                                    .bind_vertex_buffers(
-                                        0,
-                                        (vertex_buffer.clone(), normal_buffer.clone()),
-                                    )
-                                    .bind_index_buffer(index_buffer.clone())
-                                    .draw_indexed(index_buffer.len() as u32, 1, 0, 0, 0)
-                                    .unwrap()
-                                    .end_render_pass()
-                                    .unwrap();
-
-                                let command_buffer = builder.build().unwrap();
-                                let future = previous_frame_end
-                                    .take()
-                                    .unwrap()
-                                    .join(acquire_future)
-                                    .then_execute(self.queue.clone(), command_buffer)
-                                    .unwrap()
-                                    .then_swapchain_present(
-                                        self.queue.clone(),
-                                        swapchain.clone(),
-                                        image_num,
-                                    )
-                                    .then_signal_fence_and_flush();
-
-                                match future {
-                                    Ok(future) => {
-                                        previous_frame_end = Some(future.boxed());
-                                    }
-                                    Err(FlushError::OutOfDate) => {
+                                    if suboptimal {
                                         recreate_swapchain = true;
-                                        previous_frame_end =
-                                            Some(sync::now(self.device.clone()).boxed());
                                     }
-                                    Err(e) => {
-                                        println!("Failed to flush future: {:?}", e);
 
-                                        previous_frame_end =
-                                            Some(sync::now(self.device.clone()).boxed());
-                                    }
+                                    let normal_buffer = CpuAccessibleBuffer::from_iter(
+                                        self.device.clone(),
+                                        BufferUsage::all(),
+                                        false,
+                                        model.asset.normals.iter().cloned(),
+                                    )
+                                    .unwrap();
+                                    let vertex_buffer = CpuAccessibleBuffer::from_iter(
+                                        self.device.clone(),
+                                        BufferUsage::all(),
+                                        false,
+                                        model.asset.vertices.iter().cloned(),
+                                    )
+                                    .unwrap();
+                                    let index_buffer = CpuAccessibleBuffer::from_iter(
+                                        self.device.clone(),
+                                        BufferUsage::all(),
+                                        false,
+                                        model.asset.indices.iter().cloned(),
+                                    )
+                                    .unwrap();
+
+                                    builder
+                                        .bind_descriptor_sets(
+                                            PipelineBindPoint::Graphics,
+                                            pipeline.layout().clone(),
+                                            0,
+                                            set.clone(),
+                                        )
+                                        .bind_vertex_buffers(
+                                            0,
+                                            (vertex_buffer.clone(), normal_buffer.clone()),
+                                        )
+                                        .bind_index_buffer(index_buffer.clone())
+                                        .draw_indexed(index_buffer.len() as u32, 1, 0, 0, 0)
+                                        .unwrap();
                                 }
                             }
                         }
                     }
+
+                    builder.end_render_pass().unwrap();
+
+                    let command_buffer = builder.build().unwrap();
+                    let future = previous_frame_end
+                        .take()
+                        .unwrap()
+                        .join(acquire_future)
+                        .then_execute(self.queue.clone(), command_buffer)
+                        .unwrap()
+                        .then_swapchain_present(self.queue.clone(), swapchain.clone(), image_num)
+                        .then_signal_fence_and_flush();
+
+                    match future {
+                        Ok(future) => {
+                            previous_frame_end = Some(future.boxed());
+                        }
+                        Err(FlushError::OutOfDate) => {
+                            recreate_swapchain = true;
+                            previous_frame_end = Some(sync::now(self.device.clone()).boxed());
+                        }
+                        Err(e) => {
+                            println!("Failed to flush future: {:?}", e);
+
+                            previous_frame_end = Some(sync::now(self.device.clone()).boxed());
+                        }
+                    }
                 }
-            }
-            _ => {}
-        });
+                _ => {}
+            });
     }
 
     fn window_size_dependent_setup(

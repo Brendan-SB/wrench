@@ -1,32 +1,32 @@
-use crate::{
-    assets::{Mesh, Texture, Transform},
-    ecs::reexports::*,
-};
+use crate::{assets::Transform, ecs::reexports::*};
 
 #[derive(Component)]
-pub struct Model {
+pub struct Camera {
     pub entity: Arc<Mutex<Option<Arc<Entity>>>>,
     pub id: Arc<String>,
     pub tid: Arc<String>,
-    pub mesh: Arc<Mesh>,
-    pub texture: Arc<Texture>,
     pub transform: Arc<Transform>,
+    pub fov: Mutex<f32>,
+    pub near: Mutex<f32>,
+    pub far: Mutex<f32>,
 }
 
-impl Model {
+impl Camera {
     pub fn new(
         id: Arc<String>,
-        mesh: Arc<Mesh>,
-        texture: Arc<Texture>,
         transform: Arc<Transform>,
+        fov: f32,
+        near: f32,
+        far: f32,
     ) -> Arc<Self> {
         Arc::new(Self {
             entity: Arc::new(Mutex::new(None)),
             id,
-            tid: Arc::new("model".to_string()),
-            mesh,
-            texture,
+            tid: Arc::new("camera".to_string()),
             transform,
+            fov: Mutex::new(fov),
+            near: Mutex::new(near),
+            far: Mutex::new(far),
         })
     }
 }

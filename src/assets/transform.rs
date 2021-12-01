@@ -1,5 +1,5 @@
 use crate::Vector3;
-use std::sync::{Mutex, Arc};
+use std::sync::{Arc, Mutex};
 
 pub struct Transform {
     pub position: Mutex<Vector3<f32>>,
@@ -8,6 +8,9 @@ pub struct Transform {
 
 impl Transform {
     pub fn new(position: Vector3<f32>, rotation: Vector3<f32>) -> Arc<Self> {
-        Arc::new(Self { position: Mutex::new(position), rotation: Mutex::new(rotation) })
+        Arc::new(Self {
+            position: Mutex::new(position),
+            rotation: Mutex::new(rotation),
+        })
     }
 }

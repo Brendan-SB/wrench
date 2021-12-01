@@ -3,14 +3,16 @@ use vulkano::{
     device::Queue,
     format::Format,
     image::{view::ImageView, ImageDimensions, ImmutableImage, MipmapsCount},
+    sampler::Sampler,
 };
 
 pub struct Texture {
     pub image: Arc<ImageView<Arc<ImmutableImage>>>,
+    pub sampler: Arc<Sampler>,
 }
 
 impl Texture {
-    pub fn new(queue: Arc<Queue>, bytes: Vec<u8>) -> Arc<Self> {
+    pub fn new(queue: Arc<Queue>, bytes: Vec<u8>, sampler: Arc<Sampler>) -> Arc<Self> {
         let cursor = Cursor::new(bytes);
         let decoder = png::Decoder::new(cursor);
         let mut reader = decoder.read_info().unwrap();
@@ -35,6 +37,6 @@ impl Texture {
         .unwrap();
         let image = ImageView::new(image).unwrap();
 
-        Arc::new(Self { image })
+        Arc::new(Self { image, sampler })
     }
 }

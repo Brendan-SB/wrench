@@ -1,11 +1,11 @@
 use crate::{
     assets::mesh::{Normal, Vertex},
-    components::Model,
+    components::{Camera, Model},
     ecs::World,
     error::Error,
     shaders::{vertex, Shaders},
+    Matrix3, Matrix4, Rad,
 };
-use cgmath::{Matrix3, Matrix4, Point3, Rad, Vector3};
 use std::sync::{Arc, Mutex};
 use vulkano::{
     buffer::{cpu_pool::CpuBufferPool, BufferUsage, CpuAccessibleBuffer, TypedBufferAccess},
@@ -20,7 +20,6 @@ use vulkano::{
         GraphicsPipeline, PipelineBindPoint,
     },
     render_pass::{Framebuffer, FramebufferAbstract, RenderPass, Subpass},
-    sampler::{Filter, MipmapMode, Sampler, SamplerAddressMode},
     swapchain::{
         self, AcquireError, ColorSpace, SurfaceTransform, Swapchain, SwapchainCreationError,
     },
@@ -47,11 +46,16 @@ pub struct Engine {
     pub pipeline: Mutex<Arc<GraphicsPipeline>>,
     pub swapchain: Mutex<Arc<Swapchain<Window>>>,
     pub framebuffers: Mutex<Vec<Arc<dyn FramebufferAbstract + Send + Sync>>>,
+    pub camera: Mutex<Arc<Camera>>,
     pub world: Mutex<Arc<World>>,
 }
 
 impl Engine {
-    pub fn new(physical_index: usize, world: Arc<World>) -> Result<Self, Error> {
+    pub fn new(
+        physical_index: usize,
+        camera: Arc<Camera>,
+        world: Arc<World>,
+    ) -> Result<Self, Error> {
         let req_exts = vulkano_win::required_extensions();
         let instance = Instance::new(None, Version::V1_1, &req_exts, None)?;
         let physical = match PhysicalDevice::from_index(&instance, physical_index) {
@@ -139,29 +143,16 @@ impl Engine {
             pipeline: Mutex::new(pipeline),
             swapchain: Mutex::new(swapchain),
             framebuffers: Mutex::new(framebuffers),
+            camera: Mutex::new(camera),
             world: Mutex::new(world),
         })
     }
 
-    pub fn first(world: Arc<World>) -> Result<Self, Error> {
-        Self::new(0, world)
+    pub fn first(camera: Arc<Camera>, world: Arc<World>) -> Result<Self, Error> {
+        Self::new(0, camera, world)
     }
 
     pub fn run(self) -> Result<(), Error> {
-        let sampler = Sampler::new(
-            self.device.clone(),
-            Filter::Linear,
-            Filter::Linear,
-            MipmapMode::Nearest,
-            SamplerAddressMode::Repeat,
-            SamplerAddressMode::Repeat,
-            SamplerAddressMode::Repeat,
-            0.0,
-            1.0,
-            0.0,
-            0.0,
-        )
-        .unwrap();
         let uniform_buffer =
             CpuBufferPool::<vertex::ty::Data>::new(self.device.clone(), BufferUsage::all());
         let mut recreate_swapchain = false;
@@ -183,7 +174,7 @@ impl Engine {
 
                 Event::RedrawEventsCleared => {
                     previous_frame_end.as_mut().unwrap().cleanup_finished();
-                    
+
                     for entity in &*self.world.lock().unwrap().entities().lock().unwrap() {
                         for (_, v) in &*entity.components().lock().unwrap() {
                             for component in &*v.lock().unwrap() {
@@ -255,30 +246,41 @@ impl Engine {
                             entity.get_type::<Model>(Arc::new("model".to_string()))
                         {
                             for model in &*models {
-                                let rotation = model.transform.rotation.lock().unwrap();
                                 let uniform_buffer_subbuffer = {
-                                    let rotation_mat = Matrix3::from_angle_x(Rad(rotation
-                                        .x))
-                                        * Matrix3::from_angle_y(Rad(rotation.y))
-                                        * Matrix3::from_angle_z(Rad(rotation.z));
+                                    let rotation_mat = {
+                                        let rotation = model.transform.rotation.lock().unwrap();
+
+                                        Matrix4::from(
+                                            Matrix3::from_angle_x(Rad(0.0 - rotation.x))
+                                                * Matrix3::from_angle_y(Rad(0.0 - rotation.y))
+                                                * Matrix3::from_angle_z(Rad(0.0 - rotation.z)),
+                                        )
+                                    };
                                     let aspect_ratio = dimensions[0] as f32 / dimensions[1] as f32;
+                                    let camera = self.camera.lock().unwrap();
                                     let proj = cgmath::perspective(
-                                        Rad(std::f32::consts::FRAC_PI_2),
+                                        Rad(*camera.fov.lock().unwrap()),
                                         aspect_ratio,
-                                        0.01,
-                                        100.0,
+                                        *camera.near.lock().unwrap(),
+                                        *camera.far.lock().unwrap(),
                                     );
-                                    let view = Matrix4::look_at_rh(
-                                        Point3::new(0.3, 0.3, 1.0),
-                                        Point3::new(0.0, 0.0, 0.0),
-                                        Vector3::new(0.0, -1.0, 0.0),
-                                    );
+                                    let view = {
+                                        let rotation = camera.transform.rotation.lock().unwrap();
+
+                                        Matrix4::from(
+                                            Matrix3::from_angle_x(Rad(rotation.x))
+                                                * Matrix3::from_angle_y(Rad(rotation.y))
+                                                * Matrix3::from_angle_z(Rad(rotation.z)),
+                                        )
+                                    };
                                     let scale = Matrix4::from_scale(0.01);
                                     let uniform_data = vertex::ty::Data {
-                                        world: Matrix4::from(rotation_mat).into(),
+                                        world: rotation_mat.into(),
                                         view: (view * scale).into(),
                                         proj: proj.into(),
-                                        position: (*model.transform.position.lock().unwrap()).into(),
+                                        position: (*model.transform.position.lock().unwrap()
+                                            - *camera.transform.position.lock().unwrap())
+                                        .into(),
                                     };
 
                                     Arc::new(uniform_buffer.next(uniform_data).unwrap())
@@ -291,7 +293,10 @@ impl Engine {
                                 set_builder
                                     .add_buffer(uniform_buffer_subbuffer)
                                     .unwrap()
-                                    .add_sampled_image(model.texture.image.clone(), sampler.clone())
+                                    .add_sampled_image(
+                                        model.texture.image.clone(),
+                                        model.texture.sampler.clone(),
+                                    )
                                     .unwrap();
 
                                 let set = Arc::new(set_builder.build().unwrap());
@@ -304,21 +309,21 @@ impl Engine {
                                     self.device.clone(),
                                     BufferUsage::all(),
                                     false,
-                                    model.asset.normals.iter().cloned(),
+                                    model.mesh.normals.iter().cloned(),
                                 )
                                 .unwrap();
                                 let vertex_buffer = CpuAccessibleBuffer::from_iter(
                                     self.device.clone(),
                                     BufferUsage::all(),
                                     false,
-                                    model.asset.vertices.iter().cloned(),
+                                    model.mesh.vertices.iter().cloned(),
                                 )
                                 .unwrap();
                                 let index_buffer = CpuAccessibleBuffer::from_iter(
                                     self.device.clone(),
                                     BufferUsage::all(),
                                     false,
-                                    model.asset.indices.iter().cloned(),
+                                    model.mesh.indices.iter().cloned(),
                                 )
                                 .unwrap();
 

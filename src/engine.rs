@@ -251,9 +251,9 @@ impl Engine {
                                         let rotation = model.transform.rotation.lock().unwrap();
 
                                         Matrix4::from(
-                                            Matrix3::from_angle_x(Rad(0.0 - rotation.x))
-                                                * Matrix3::from_angle_y(Rad(0.0 - rotation.y))
-                                                * Matrix3::from_angle_z(Rad(0.0 - rotation.z)),
+                                            Matrix3::from_angle_x(Rad(rotation.x * -1.0))
+                                                * Matrix3::from_angle_y(Rad(rotation.y * -1.0))
+                                                * Matrix3::from_angle_z(Rad(rotation.z * -1.0)),
                                         )
                                     };
                                     let aspect_ratio = dimensions[0] as f32 / dimensions[1] as f32;

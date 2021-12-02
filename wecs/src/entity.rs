@@ -88,12 +88,10 @@ impl Entity {
     {
         match self.get_type::<T>(tid) {
             Some(components) => match components.first() {
-                Some(component) => {
-                    Some(component.clone())
-                }
+                Some(component) => Some(component.clone()),
 
                 None => None,
-            }
+            },
 
             None => None,
         }
@@ -121,8 +119,7 @@ impl Entity {
                     });
 
                 target.is_empty()
-            }
-            {
+            } {
                 components.remove(&tid);
             }
         }

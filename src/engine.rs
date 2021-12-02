@@ -1,8 +1,8 @@
 use crate::{
     assets::mesh::{Normal, Vertex},
-    components::{Camera, Model},
-    ecs::World,
+    components::Model,
     error::Error,
+    scene::Scene,
     shaders::{vertex, Shaders},
     Matrix3, Matrix4, Rad,
 };
@@ -21,7 +21,8 @@ use vulkano::{
     },
     render_pass::{Framebuffer, FramebufferAbstract, RenderPass, Subpass},
     swapchain::{
-        self, AcquireError, ColorSpace, SurfaceTransform, Swapchain, SwapchainCreationError,
+        self, AcquireError, ColorSpace, Surface, SurfaceTransform, Swapchain,
+        SwapchainCreationError,
     },
     sync::{self, FlushError, GpuFuture},
     Version,
@@ -33,29 +34,22 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
-pub type Surface = swapchain::Surface<Window>;
-
 pub struct Engine {
     pub physical_index: usize,
     pub event_loop: EventLoop<()>,
     pub device: Arc<Device>,
     pub queue: Arc<Queue>,
-    pub surface: Arc<Surface>,
+    pub surface: Arc<Surface<Window>>,
     pub shaders: Arc<Shaders>,
     pub render_pass: Arc<RenderPass>,
     pub pipeline: Mutex<Arc<GraphicsPipeline>>,
     pub swapchain: Mutex<Arc<Swapchain<Window>>>,
     pub framebuffers: Mutex<Vec<Arc<dyn FramebufferAbstract + Send + Sync>>>,
-    pub camera: Mutex<Arc<Camera>>,
-    pub world: Mutex<Arc<World>>,
+    pub scene: Mutex<Arc<Scene>>,
 }
 
 impl Engine {
-    pub fn new(
-        physical_index: usize,
-        camera: Arc<Camera>,
-        world: Arc<World>,
-    ) -> Result<Self, Error> {
+    pub fn new(physical_index: usize, scene: Arc<Scene>) -> Result<Self, Error> {
         let req_exts = vulkano_win::required_extensions();
         let instance = Instance::new(None, Version::V1_1, &req_exts, None)?;
         let physical = match PhysicalDevice::from_index(&instance, physical_index) {
@@ -143,13 +137,12 @@ impl Engine {
             pipeline: Mutex::new(pipeline),
             swapchain: Mutex::new(swapchain),
             framebuffers: Mutex::new(framebuffers),
-            camera: Mutex::new(camera),
-            world: Mutex::new(world),
+            scene: Mutex::new(scene),
         })
     }
 
-    pub fn first(camera: Arc<Camera>, world: Arc<World>) -> Result<Self, Error> {
-        Self::new(0, camera, world)
+    pub fn first(scene: Arc<Scene>) -> Result<Self, Error> {
+        Self::new(0, scene)
     }
 
     pub fn run(self) -> Result<(), Error> {
@@ -175,7 +168,7 @@ impl Engine {
                 Event::RedrawEventsCleared => {
                     previous_frame_end.as_mut().unwrap().cleanup_finished();
 
-                    for entity in &*self.world.lock().unwrap().entities().lock().unwrap() {
+                    for entity in &*self.scene.lock().unwrap().world.entities().lock().unwrap() {
                         for (_, v) in &*entity.components().lock().unwrap() {
                             for component in &*v.lock().unwrap() {
                                 component.on_update();
@@ -187,6 +180,7 @@ impl Engine {
                     let mut pipeline = self.pipeline.lock().unwrap();
                     let mut swapchain = self.swapchain.lock().unwrap();
                     let mut framebuffers = self.framebuffers.lock().unwrap();
+                    let scene = self.scene.lock().unwrap();
 
                     if recreate_swapchain {
                         let (new_swapchain, new_images) =
@@ -241,7 +235,7 @@ impl Engine {
                         )
                         .unwrap();
 
-                    for entity in &*self.world.lock().unwrap().entities().lock().unwrap() {
+                    for entity in &*scene.world.entities().lock().unwrap() {
                         if let Some(models) =
                             entity.get_type::<Model>(Arc::new("model".to_string()))
                         {
@@ -257,7 +251,7 @@ impl Engine {
                                         )
                                     };
                                     let aspect_ratio = dimensions[0] as f32 / dimensions[1] as f32;
-                                    let camera = self.camera.lock().unwrap();
+                                    let camera = scene.camera.lock().unwrap();
                                     let proj = cgmath::perspective(
                                         Rad(*camera.fov.lock().unwrap()),
                                         aspect_ratio,
@@ -285,8 +279,8 @@ impl Engine {
 
                                     Arc::new(uniform_buffer.next(uniform_data).unwrap())
                                 };
-                                let set_layouts = pipeline.layout().descriptor_set_layouts();
-                                let set_layout = set_layouts.get(0).unwrap();
+                                let set_layout =
+                                    pipeline.layout().descriptor_set_layouts().get(0).unwrap();
                                 let mut set_builder =
                                     PersistentDescriptorSet::start(set_layout.clone());
 

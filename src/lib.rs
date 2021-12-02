@@ -2,6 +2,7 @@ pub mod assets;
 pub mod components;
 pub mod engine;
 pub mod error;
+pub mod scene;
 pub mod shaders;
 
 pub use cgmath;
@@ -24,4 +25,5 @@ pub mod ecs {
     }
 }
 
-pub use engine::{Engine, Surface};
+pub use engine::Engine;
+pub use scene::Scene;

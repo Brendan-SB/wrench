@@ -29,8 +29,7 @@ impl World {
         self.entities.clone()
     }
 
-    pub fn remove<T>(&self, entity: Arc<Entity>)
-    {
+    pub fn remove<T>(&self, entity: Arc<Entity>) {
         self.remove_by_id(entity.id.clone());
     }
 

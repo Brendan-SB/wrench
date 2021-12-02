@@ -9,14 +9,15 @@ vulkano_shaders::shader! {
 
     layout(location = 0) out vec4 f_color;
 
+    struct Light {
+        vec3 position;
+        float intensity;
+    };
+
     layout(set = 0, binding = 1) uniform sampler2D tex;
 
-    const vec3 LIGHT = vec3(0.0, 0.0, 1.0);
-
     void main() {
-        float brightness = dot(normalize(v_normal), normalize(LIGHT));
-        
-        f_color = texture(tex, tex_pos) * brightness;
+        f_color = texture(tex, tex_pos);
     }
     "
 }

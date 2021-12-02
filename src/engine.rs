@@ -3,7 +3,10 @@ use crate::{
     components::Model,
     error::Error,
     scene::Scene,
-    shaders::{vertex, Shaders},
+    shaders::{
+        fragment::{self, MAX_LIGHTS},
+        vertex, Shaders,
+    },
     Matrix3, Matrix4, Rad,
 };
 use std::sync::{Arc, Mutex};
@@ -148,6 +151,12 @@ impl Engine {
     pub fn run(self) -> Result<(), Error> {
         let uniform_buffer =
             CpuBufferPool::<vertex::ty::Data>::new(self.device.clone(), BufferUsage::all());
+        let frag_uniform_buffer =
+            CpuBufferPool::<fragment::ty::Data>::new(self.device.clone(), BufferUsage::all());
+        let mut lights_buffer = [fragment::ty::Light {
+            position: [0.0, 0.0, 0.0],
+            intensity: 0.0,
+        }; MAX_LIGHTS];
         let mut recreate_swapchain = false;
         let mut previous_frame_end = Some(sync::now(self.device.clone()).boxed());
 
@@ -245,9 +254,9 @@ impl Engine {
                                         let rotation = model.transform.rotation.lock().unwrap();
 
                                         Matrix4::from(
-                                            Matrix3::from_angle_x(Rad(rotation.x * -1.0))
-                                                * Matrix3::from_angle_y(Rad(rotation.y * -1.0))
-                                                * Matrix3::from_angle_z(Rad(rotation.z * -1.0)),
+                                            Matrix3::from_angle_x(Rad(rotation.x))
+                                                * Matrix3::from_angle_y(Rad(rotation.y))
+                                                * Matrix3::from_angle_z(Rad(rotation.z)),
                                         )
                                     };
                                     let aspect_ratio = dimensions[0] as f32 / dimensions[1] as f32;
@@ -279,6 +288,31 @@ impl Engine {
 
                                     Arc::new(uniform_buffer.next(uniform_data).unwrap())
                                 };
+                                let frag_uniform_buffer_subbuffer = {
+                                    let lights = scene.lights.lock().unwrap();
+
+                                    for (i, light) in lights.iter().enumerate() {
+                                        if i > MAX_LIGHTS {
+                                            break;
+                                        }
+
+                                        lights_buffer[i] = fragment::ty::Light {
+                                            position: (*light.transform.position.lock().unwrap())
+                                                .into(),
+                                            intensity: *light.intensity.lock().unwrap(),
+                                        };
+                                    }
+
+                                    let uniform_data = fragment::ty::Data {
+                                        lights: fragment::ty::LightArray {
+                                            size: lights.len() as u32,
+                                            array: lights_buffer,
+                                            _dummy0: [0; 12],
+                                        },
+                                    };
+
+                                    Arc::new(frag_uniform_buffer.next(uniform_data).unwrap())
+                                };
                                 let set_layout =
                                     pipeline.layout().descriptor_set_layouts().get(0).unwrap();
                                 let mut set_builder =
@@ -291,6 +325,8 @@ impl Engine {
                                         model.texture.image.clone(),
                                         model.texture.sampler.clone(),
                                     )
+                                    .unwrap()
+                                    .add_buffer(frag_uniform_buffer_subbuffer)
                                     .unwrap();
 
                                 let set = Arc::new(set_builder.build().unwrap());

@@ -19,11 +19,12 @@ vulkano_shaders::shader! {
 
     void main() {
         mat4 worldview = uniforms.view * uniforms.world;
+
         v_normal = transpose(inverse(mat3(worldview))) * normal;
 
         vec4 pos = uniforms.proj * worldview * vec4(position + uniforms.position, 1.0);
-        gl_Position = pos;
 
+        gl_Position = pos;
         tex_pos = vec2(pos);
     }
     "

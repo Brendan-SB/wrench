@@ -280,9 +280,9 @@ impl Engine {
                                         let rotation = camera.transform.rotation.lock().unwrap();
 
                                         Matrix4::from(
-                                            Matrix3::from_angle_x(Rad(rotation.x * -1.0))
-                                                * Matrix3::from_angle_y(Rad(rotation.y * -1.0))
-                                                * Matrix3::from_angle_z(Rad(rotation.z * -1.0)),
+                                            Matrix3::from_angle_x(Rad(-rotation.x))
+                                                * Matrix3::from_angle_y(Rad(-rotation.y))
+                                                * Matrix3::from_angle_z(Rad(-rotation.z)),
                                         )
                                     };
                                     let scale = Matrix4::from_scale(0.01);

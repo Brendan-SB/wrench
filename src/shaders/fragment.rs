@@ -32,7 +32,7 @@ vulkano_shaders::shader! {
         float brightness = 1.0;
 
         for (uint i = 0; i < uniforms.lights.size; i++) {
-            brightness *= dot(normalize(v_normal), normalize(uniforms.lights.array[i].position)) * uniforms.lights.array[i].intensity;
+            brightness += dot(normalize(v_normal), normalize(uniforms.lights.array[i].position)) * uniforms.lights.array[i].intensity;
         }
 
         f_color = texture(tex, tex_pos) * brightness;

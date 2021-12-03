@@ -32,7 +32,7 @@ use vulkano::{
 };
 use vulkano_win::VkSurfaceBuild;
 use winit::{
-    event::{Event, WindowEvent},
+    event::{Event, WindowEvent, DeviceEvent},
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
@@ -49,6 +49,7 @@ pub struct Engine {
     pub swapchain: Mutex<Arc<Swapchain<Window>>>,
     pub framebuffers: Mutex<Vec<Arc<dyn FramebufferAbstract + Send + Sync>>>,
     pub scene: Mutex<Arc<Scene>>,
+    pub events: Mutex<Vec<Arc<DeviceEvent>>>,
 }
 
 impl Engine {
@@ -141,6 +142,7 @@ impl Engine {
             swapchain: Mutex::new(swapchain),
             framebuffers: Mutex::new(framebuffers),
             scene: Mutex::new(scene),
+            events: Mutex::new(Vec::new()),
         })
     }
 
@@ -172,6 +174,13 @@ impl Engine {
                     ..
                 } => {
                     recreate_swapchain = true;
+                }
+
+                Event::DeviceEvent {
+                    event,
+                    ..
+                } => {
+                    self.events.lock().unwrap().push(Arc::new(event));
                 }
 
                 Event::RedrawEventsCleared => {
@@ -401,6 +410,8 @@ impl Engine {
                             previous_frame_end = Some(sync::now(self.device.clone()).boxed());
                         }
                     }
+
+                    self.events.lock().unwrap().clear();
                 }
                 _ => {}
             });

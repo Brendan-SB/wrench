@@ -1,12 +1,13 @@
+use crate::{InnerSpace, Vector3};
 use std::sync::Arc;
 
 #[derive(Default, Copy, Clone)]
 pub struct Vertex {
     pub position: [f32; 3],
-    pub tex_coords: [f32; 2],
+    pub uv: [f32; 2],
 }
 
-vulkano::impl_vertex!(Vertex, position, tex_coords);
+vulkano::impl_vertex!(Vertex, position, uv);
 
 #[derive(Default, Copy, Clone)]
 pub struct Normal {
@@ -15,18 +16,43 @@ pub struct Normal {
 
 vulkano::impl_vertex!(Normal, normal);
 
+pub fn gen_normals(vertices: &Vec<Vertex>) -> Vec<Normal> {
+    let mut normals = Vec::new();
+
+    for window in vertices.windows(2) {
+        let normal = Normal {
+            normal: Vector3::new(
+                (window[0].position[1] - window[1].position[1])
+                    * (window[0].position[2] + window[1].position[2]),
+                (window[0].position[2] - window[1].position[2])
+                    * (window[0].position[0] + window[1].position[0]),
+                (window[0].position[0] - window[1].position[0])
+                    * (window[0].position[1] + window[1].position[1]),
+            )
+            .normalize()
+            .into(),
+        };
+
+        normals.push(normal);
+    }
+
+    normals
+}
+
 pub struct Mesh {
     pub vertices: Vec<Vertex>,
-    pub normals: Vec<Normal>,
     pub indices: Vec<u32>,
+    pub normals: Vec<Normal>,
 }
 
 impl Mesh {
-    pub fn new(vertices: Vec<Vertex>, normals: Vec<Normal>, indices: Vec<u32>) -> Arc<Self> {
+    pub fn new(vertices: Vec<Vertex>, indices: Vec<u32>) -> Arc<Self> {
+        let normals = gen_normals(&vertices);
+
         Arc::new(Self {
             vertices,
-            normals,
             indices,
+            normals,
         })
     }
 }

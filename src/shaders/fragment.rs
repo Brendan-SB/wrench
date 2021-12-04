@@ -10,6 +10,7 @@ vulkano_shaders::shader! {
 
     layout(location = 0) in vec3 v_normal;
     layout(location = 1) in vec2 tex_coord;
+    layout(location = 2) in mat4 transform;
 
     layout(location = 0) out vec4 f_color;
 
@@ -29,7 +30,7 @@ vulkano_shaders::shader! {
     } uniforms;
 
     void main() {
-        float brightness = 1.0;
+        float brightness = 0.0;
 
         for (uint i = 0; i < uniforms.lights.size; i++) {
             brightness += dot(normalize(v_normal), normalize(uniforms.lights.array[i].position)) * uniforms.lights.array[i].intensity;

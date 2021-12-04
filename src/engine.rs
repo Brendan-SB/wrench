@@ -285,10 +285,9 @@ impl Engine {
                                                 * Matrix3::from_angle_z(Rad(-rotation.z)),
                                         )
                                     };
-                                    let scale = Matrix4::from_scale(0.01);
                                     let uniform_data = vertex::ty::Data {
                                         world: rotation_mat.into(),
-                                        view: (view * scale).into(),
+                                        view: view.into(),
                                         proj: proj.into(),
                                         translation: (Matrix4::from_translation(
                                             *model.transform.position.lock().unwrap(),

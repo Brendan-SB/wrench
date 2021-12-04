@@ -1,13 +1,13 @@
 use crate::{
     assets::mesh::{Normal, Vertex},
     components::{EventHandler, Model},
+    ecs,
     error::Error,
     scene::Scene,
     shaders::{
         fragment::{self, MAX_LIGHTS},
         vertex, Shaders,
     },
-    ecs,
     Matrix3, Matrix4, Rad,
 };
 use std::sync::{Arc, Mutex};
@@ -256,9 +256,7 @@ impl Engine {
                         .unwrap();
 
                     for entity in &*scene.world.entities().lock().unwrap() {
-                        if let Some(models) =
-                            entity.get_type::<Model>(ecs::id("model"))
-                        {
+                        if let Some(models) = entity.get_type::<Model>(ecs::id("model")) {
                             for model in &*models {
                                 let uniform_buffer_subbuffer = {
                                     let rotation_mat = {

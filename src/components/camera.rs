@@ -1,4 +1,7 @@
-use crate::{assets::Transform, ecs::{self, reexports::*}};
+use crate::{
+    assets::Transform,
+    ecs::{self, reexports::*},
+};
 
 #[derive(Component)]
 pub struct Camera {

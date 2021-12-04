@@ -2,14 +2,15 @@ use std::sync::Arc;
 
 #[derive(Default, Copy, Clone)]
 pub struct Vertex {
-    pub position: (f32, f32, f32),
+    pub position: [f32; 3],
+    pub tex_coords: [f32; 2],
 }
 
-vulkano::impl_vertex!(Vertex, position);
+vulkano::impl_vertex!(Vertex, position, tex_coords);
 
 #[derive(Default, Copy, Clone)]
 pub struct Normal {
-    pub normal: (f32, f32, f32),
+    pub normal: [f32; 3],
 }
 
 vulkano::impl_vertex!(Normal, normal);

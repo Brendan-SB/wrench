@@ -5,10 +5,11 @@ vulkano_shaders::shader! {
     #version 450
 
     layout(location = 0) in vec3 position;
-    layout(location = 1) in vec3 normal;
+    layout(location = 1) in vec2 tex_coords;
+    layout(location = 2) in vec3 normal;
 
     layout(location = 0) out vec3 v_normal;
-    layout(location = 1) out vec2 tex_pos;
+    layout(location = 1) out vec2 o_tex_coord;
 
     layout(set = 0, binding = 0) uniform Data {
         mat4 world;
@@ -25,7 +26,7 @@ vulkano_shaders::shader! {
         vec4 pos = worldview * uniforms.translation * vec4(position, 1.0);
 
         gl_Position = uniforms.proj * pos;
-        tex_pos = vec2(pos.y, pos.z);
+        o_tex_coord = tex_coords;
     }
     "
 }

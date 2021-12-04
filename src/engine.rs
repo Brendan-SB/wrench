@@ -273,8 +273,8 @@ impl Engine {
                                             * Matrix4::from_angle_z(Rad(-rotation.z))
                                     };
                                     let uniform_data = vertex::ty::Data {
-                                        world: rotation.into(),
-                                        view: view.into(),
+                                        rotation: rotation.into(),
+                                        cam_rotation: view.into(),
                                         proj: proj.into(),
                                         translation: Matrix4::from_translation(
                                             *model.transform.position.lock().unwrap(),

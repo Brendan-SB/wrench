@@ -12,20 +12,19 @@ vulkano_shaders::shader! {
     layout(location = 1) out vec2 tex_coords;
 
     layout(set = 0, binding = 0) uniform Data {
-        mat4 world;
-        mat4 view;
+        mat4 rotation;
+        mat4 cam_rotation;
         mat4 proj;
         mat4 translation;
         mat4 cam_translation;
     } uniforms;
 
     void main() {
-        mat4 worldview = uniforms.view * uniforms.world;
+        mat4 worldview = uniforms.rotation * uniforms.cam_rotation * uniforms.translation * uniforms.cam_translation;
 
         v_normal = transpose(inverse(mat3(worldview))) * normal;
         
-        mat4 cam_transform = worldview * uniforms.cam_translation;
-        vec4 pos = uniforms.proj * uniforms.translation * cam_transform * vec4(position, 1.0);
+        vec4 pos = uniforms.proj * worldview * vec4(position, 1.0);
 
         tex_coords = uv;
         gl_Position = pos;

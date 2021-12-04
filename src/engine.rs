@@ -164,6 +164,12 @@ impl Engine {
 
         self.event_loop.run(move |event, _, control_flow| {
             for entity in &*self.scene.lock().unwrap().world.entities().lock().unwrap() {
+                for (_, v) in &*entity.components().lock().unwrap() {
+                    for component in &*v.lock().unwrap() {
+                        component.on_update();
+                    }
+                }
+
                 if let Some(event_handlers) =
                     entity.get_type::<EventHandler>(Arc::new("event handler".to_string()))
                 {
@@ -188,14 +194,6 @@ impl Engine {
 
                 Event::RedrawEventsCleared => {
                     previous_frame_end.as_mut().unwrap().cleanup_finished();
-
-                    for entity in &*self.scene.lock().unwrap().world.entities().lock().unwrap() {
-                        for (_, v) in &*entity.components().lock().unwrap() {
-                            for component in &*v.lock().unwrap() {
-                                component.on_update();
-                            }
-                        }
-                    }
 
                     let dimensions: [u32; 2] = self.surface.window().inner_size().into();
                     let mut pipeline = self.pipeline.lock().unwrap();

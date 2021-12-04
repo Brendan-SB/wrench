@@ -289,11 +289,13 @@ impl Engine {
                                         world: rotation_mat.into(),
                                         view: view.into(),
                                         proj: proj.into(),
-                                        translation: (Matrix4::from_translation(
+                                        translation: Matrix4::from_translation(
                                             *model.transform.position.lock().unwrap(),
-                                        ) * Matrix4::from_translation(
+                                        )
+                                        .into(),
+                                        cam_translation: Matrix4::from_translation(
                                             -*camera.transform.position.lock().unwrap(),
-                                        ))
+                                        )
                                         .into(),
                                     };
 

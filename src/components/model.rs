@@ -1,6 +1,6 @@
 use crate::{
     assets::{Mesh, Texture, Transform},
-    ecs::reexports::*,
+    ecs::{self, reexports::*},
 };
 
 #[derive(Component)]
@@ -23,7 +23,7 @@ impl Model {
         Arc::new(Self {
             entity: Arc::new(Mutex::new(None)),
             id,
-            tid: Arc::new("model".to_string()),
+            tid: ecs::id("model"),
             mesh,
             texture,
             transform,

@@ -7,6 +7,7 @@ use crate::{
         fragment::{self, MAX_LIGHTS},
         vertex, Shaders,
     },
+    ecs,
     Matrix3, Matrix4, Rad,
 };
 use std::sync::{Arc, Mutex};
@@ -171,7 +172,7 @@ impl Engine {
                 }
 
                 if let Some(event_handlers) =
-                    entity.get_type::<EventHandler>(Arc::new("event handler".to_string()))
+                    entity.get_type::<EventHandler>(ecs::id("event handler"))
                 {
                     for event_handler in &*event_handlers {
                         event_handler.handle(&event);
@@ -256,7 +257,7 @@ impl Engine {
 
                     for entity in &*scene.world.entities().lock().unwrap() {
                         if let Some(models) =
-                            entity.get_type::<Model>(Arc::new("model".to_string()))
+                            entity.get_type::<Model>(ecs::id("model"))
                         {
                             for model in &*models {
                                 let uniform_buffer_subbuffer = {
@@ -291,8 +292,11 @@ impl Engine {
                                         world: rotation_mat.into(),
                                         view: (view * scale).into(),
                                         proj: proj.into(),
-                                        position: (*model.transform.position.lock().unwrap()
-                                            - *camera.transform.position.lock().unwrap())
+                                        translation: (Matrix4::from_translation(
+                                            *model.transform.position.lock().unwrap(),
+                                        ) * Matrix4::from_translation(
+                                            -*camera.transform.position.lock().unwrap(),
+                                        ))
                                         .into(),
                                     };
 

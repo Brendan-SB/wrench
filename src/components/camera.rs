@@ -1,4 +1,4 @@
-use crate::{assets::Transform, ecs::reexports::*};
+use crate::{assets::Transform, ecs::{self, reexports::*}};
 
 #[derive(Component)]
 pub struct Camera {
@@ -22,7 +22,7 @@ impl Camera {
         Arc::new(Self {
             entity: Arc::new(Mutex::new(None)),
             id,
-            tid: Arc::new("camera".to_string()),
+            tid: ecs::id("camera"),
             transform,
             fov: Mutex::new(fov),
             near: Mutex::new(near),

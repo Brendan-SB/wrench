@@ -1,7 +1,9 @@
-use crate::ecs::reexports::*;
+use crate::ecs::{self, reexports::*};
 use winit::event::Event;
 
-pub trait Handler: Send + Sync + 'static {
+pub trait Handler: Send + Sync {
+    fn set_event_handler(&self, _: Option<Arc<EventHandler>>) {}
+
     fn handle<'a>(&self, event: &Event<'a, ()>);
 }
 
@@ -15,12 +17,16 @@ pub struct EventHandler {
 
 impl EventHandler {
     pub fn new<'a>(id: Arc<String>, handler: Arc<dyn Handler>) -> Arc<Self> {
-        Arc::new(Self {
+        let event_handler = Arc::new(Self {
             entity: Arc::new(Mutex::new(None)),
             id,
-            tid: Arc::new("event handler".to_string()),
-            handler: Mutex::new(handler),
-        })
+            tid: ecs::id("event handler"),
+            handler: Mutex::new(handler.clone()),
+        });
+
+        handler.set_event_handler(Some(event_handler.clone()));
+
+        event_handler
     }
 
     pub fn handle<'a>(&self, event: &Event<'a, ()>) {

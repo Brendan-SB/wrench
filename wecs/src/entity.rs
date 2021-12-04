@@ -7,7 +7,7 @@ use std::{
 pub struct Entity {
     pub id: Arc<String>,
     pub world: Mutex<Option<Arc<World>>>,
-    components: Arc<Mutex<HashMap<Arc<String>, Arc<Mutex<Vec<Arc<dyn Component + Send + Sync>>>>>>>,
+    components: Arc<Mutex<HashMap<Arc<String>, Arc<Mutex<Vec<Arc<dyn Component>>>>>>>,
 }
 
 impl Entity {
@@ -19,7 +19,7 @@ impl Entity {
         })
     }
 
-    pub fn add(self: &Arc<Self>, component: Arc<dyn Component + Send + Sync>) {
+    pub fn add(self: &Arc<Self>, component: Arc<dyn Component>) {
         let mut components = self.components.lock().unwrap();
 
         component.set_entity(Some(self.clone()));
@@ -39,13 +39,13 @@ impl Entity {
 
     pub fn components(
         &self,
-    ) -> Arc<Mutex<HashMap<Arc<String>, Arc<Mutex<Vec<Arc<dyn Component + Send + Sync>>>>>>> {
+    ) -> Arc<Mutex<HashMap<Arc<String>, Arc<Mutex<Vec<Arc<dyn Component>>>>>>> {
         self.components.clone()
     }
 
     pub fn get_type<T>(&self, tid: Arc<String>) -> Option<Arc<Vec<Arc<T>>>>
     where
-        T: Component + Send + Sync + 'static,
+        T: Component,
     {
         match self.components.lock().unwrap().get(&tid) {
             Some(components) => Some(Arc::new(
@@ -64,7 +64,7 @@ impl Entity {
 
     pub fn get<T>(&self, tid: Arc<String>, id: Arc<String>) -> Option<Arc<Vec<Arc<T>>>>
     where
-        T: Component + Send + Sync + 'static,
+        T: Component,
     {
         match self.components.lock().unwrap().get(&tid) {
             Some(components) => Some(Arc::new(

@@ -4,7 +4,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-pub trait Component: Send + Sync {
+pub trait Component: Send + Sync + 'static {
     fn entity(&self) -> Arc<Mutex<Option<Arc<Entity>>>>;
 
     fn set_entity(&self, entity: Option<Arc<Entity>>);
@@ -13,7 +13,7 @@ pub trait Component: Send + Sync {
 
     fn tid(&self) -> Arc<String>;
 
-    fn as_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync>;
+    fn as_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync + 'static>;
 
     fn on_update(&self) {}
 }

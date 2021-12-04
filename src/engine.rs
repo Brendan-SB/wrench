@@ -1,6 +1,6 @@
 use crate::{
     assets::mesh::{Normal, Vertex},
-    components::Model,
+    components::{EventHandler, Model},
     error::Error,
     scene::Scene,
     shaders::{
@@ -32,10 +32,12 @@ use vulkano::{
 };
 use vulkano_win::VkSurfaceBuild;
 use winit::{
-    event::{Event, WindowEvent, DeviceEvent},
+    event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
+
+pub const MAX_EVENTS: usize = 50;
 
 pub struct Engine {
     pub physical_index: usize,
@@ -49,7 +51,6 @@ pub struct Engine {
     pub swapchain: Mutex<Arc<Swapchain<Window>>>,
     pub framebuffers: Mutex<Vec<Arc<dyn FramebufferAbstract + Send + Sync>>>,
     pub scene: Mutex<Arc<Scene>>,
-    pub events: Mutex<Vec<Arc<DeviceEvent>>>,
 }
 
 impl Engine {
@@ -142,7 +143,6 @@ impl Engine {
             swapchain: Mutex::new(swapchain),
             framebuffers: Mutex::new(framebuffers),
             scene: Mutex::new(scene),
-            events: Mutex::new(Vec::new()),
         })
     }
 
@@ -162,8 +162,18 @@ impl Engine {
         let mut recreate_swapchain = false;
         let mut previous_frame_end = Some(sync::now(self.device.clone()).boxed());
 
-        self.event_loop
-            .run(move |event, _, control_flow| match event {
+        self.event_loop.run(move |event, _, control_flow| {
+            for entity in &*self.scene.lock().unwrap().world.entities().lock().unwrap() {
+                if let Some(event_handlers) =
+                    entity.get_type::<EventHandler>(Arc::new("event handler".to_string()))
+                {
+                    for event_handler in &*event_handlers {
+                        event_handler.handle(&event);
+                    }
+                }
+            }
+
+            match event {
                 Event::WindowEvent {
                     event: WindowEvent::CloseRequested,
                     ..
@@ -174,13 +184,6 @@ impl Engine {
                     ..
                 } => {
                     recreate_swapchain = true;
-                }
-
-                Event::DeviceEvent {
-                    event,
-                    ..
-                } => {
-                    self.events.lock().unwrap().push(Arc::new(event));
                 }
 
                 Event::RedrawEventsCleared => {
@@ -410,11 +413,10 @@ impl Engine {
                             previous_frame_end = Some(sync::now(self.device.clone()).boxed());
                         }
                     }
-
-                    self.events.lock().unwrap().clear();
                 }
                 _ => {}
-            });
+            }
+        });
     }
 
     fn window_size_dependent_setup(

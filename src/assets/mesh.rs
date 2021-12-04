@@ -46,13 +46,17 @@ pub struct Mesh {
 }
 
 impl Mesh {
-    pub fn new(vertices: Vec<Vertex>, indices: Vec<u32>) -> Arc<Self> {
-        let normals = gen_normals(&vertices);
-
+    pub fn new(vertices: Vec<Vertex>, indices: Vec<u32>, normals: Vec<Normal>) -> Arc<Self> {
         Arc::new(Self {
             vertices,
             indices,
             normals,
         })
+    }
+
+    pub fn auto(vertices: Vec<Vertex>, indices: Vec<u32>) -> Arc<Self> {
+        let normals = gen_normals(&vertices);
+
+        Self::new(vertices, indices, normals)
     }
 }

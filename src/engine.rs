@@ -4,10 +4,8 @@ use crate::{
     ecs,
     error::Error,
     scene::Scene,
-    shaders::{
-        vertex, Shaders,
-    },
-    Matrix3, Matrix4, Rad,
+    shaders::{vertex, Shaders},
+    Matrix4, Rad,
 };
 use std::sync::{Arc, Mutex};
 use vulkano::{
@@ -270,11 +268,9 @@ impl Engine {
                                     let view = {
                                         let rotation = camera.transform.rotation.lock().unwrap();
 
-                                        Matrix4::from(
-                                            Matrix3::from_angle_x(Rad(-rotation.x))
-                                                * Matrix3::from_angle_y(Rad(-rotation.y))
-                                                * Matrix3::from_angle_z(Rad(-rotation.z)),
-                                        )
+                                        Matrix4::from_angle_x(Rad(-rotation.x))
+                                            * Matrix4::from_angle_y(Rad(-rotation.y))
+                                            * Matrix4::from_angle_z(Rad(-rotation.z))
                                     };
                                     let uniform_data = vertex::ty::Data {
                                         world: rotation.into(),

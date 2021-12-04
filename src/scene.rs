@@ -9,10 +9,7 @@ pub struct Scene {
 }
 
 impl Scene {
-    pub fn new(
-        world: Arc<World>,
-        camera: Arc<Camera>,
-    ) -> Arc<Self> {
+    pub fn new(world: Arc<World>, camera: Arc<Camera>) -> Arc<Self> {
         Arc::new(Self {
             world,
             camera: Mutex::new(camera),

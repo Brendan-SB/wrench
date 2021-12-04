@@ -259,14 +259,12 @@ impl Engine {
                         if let Some(models) = entity.get_type::<Model>(ecs::id("model")) {
                             for model in &*models {
                                 let uniform_buffer_subbuffer = {
-                                    let rotation_mat = {
+                                    let rotation = {
                                         let rotation = model.transform.rotation.lock().unwrap();
 
-                                        Matrix4::from(
-                                            Matrix3::from_angle_x(Rad(rotation.x))
-                                                * Matrix3::from_angle_y(Rad(rotation.y))
-                                                * Matrix3::from_angle_z(Rad(rotation.z)),
-                                        )
+                                        Matrix4::from_angle_x(Rad(rotation.x))
+                                            * Matrix4::from_angle_y(Rad(rotation.y))
+                                            * Matrix4::from_angle_z(Rad(rotation.z))
                                     };
                                     let aspect_ratio = dimensions[0] as f32 / dimensions[1] as f32;
                                     let camera = scene.camera.lock().unwrap();
@@ -286,7 +284,7 @@ impl Engine {
                                         )
                                     };
                                     let uniform_data = vertex::ty::Data {
-                                        world: rotation_mat.into(),
+                                        world: rotation.into(),
                                         view: view.into(),
                                         proj: proj.into(),
                                         translation: Matrix4::from_translation(

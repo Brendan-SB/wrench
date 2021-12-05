@@ -1,5 +1,3 @@
-pub const MAX_LIGHTS: usize = 1024;
-
 vulkano_shaders::shader! {
     ty: "fragment",
     src:

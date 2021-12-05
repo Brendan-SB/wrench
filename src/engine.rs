@@ -308,7 +308,8 @@ impl Engine {
                                         lights: fragment::ty::LightArray {
                                             size: lights.len() as u32,
                                             array: lights_array,
-                                            _dummy0: [0; 12],
+                                            ambient: *scene.ambient.lock().unwrap(),
+                                            _dummy0: [0; 8],
                                         },
                                     };
 

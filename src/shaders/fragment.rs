@@ -12,6 +12,7 @@ vulkano_shaders::shader! {
     };
 
     struct LightArray {
+        float ambient;
         uint size;
         Light array[MAX_LIGHTS];
     };
@@ -32,10 +33,10 @@ vulkano_shaders::shader! {
         float brightness = 0.0;
 
         for (uint i = 0; i < uniforms.lights.size; i++) {
-            brightness += dot(v_normal, normalize(worldview * uniforms.lights.array[i].position));
+            brightness += dot(v_normal, normalize(worldview * uniforms.lights.array[i].position)) * uniforms.lights.array[i].intensity;
         }
         
-        f_color = texture(tex, tex_coord) * brightness;
+        f_color = texture(tex, tex_coord) * (brightness + uniforms.lights.ambient);
     }
     "
 }

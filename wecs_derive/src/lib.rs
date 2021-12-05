@@ -1,8 +1,6 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{
-    parse_macro_input, DeriveInput,
-};
+use syn::{parse_macro_input, DeriveInput};
 
 #[proc_macro_derive(Component)]
 pub fn component(input: TokenStream) -> TokenStream {

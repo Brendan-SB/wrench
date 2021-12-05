@@ -46,7 +46,6 @@ impl Model {
         R: BufRead,
     {
         let obj = obj::load_obj(reader)?;
-
         let mut vertices = Vec::new();
         let mut normals = Vec::new();
 

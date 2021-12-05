@@ -8,6 +8,6 @@ pub use world::World;
 
 use std::sync::Arc;
 
-pub fn id(id: &str) -> Arc<String>{
+pub fn id(id: &str) -> Arc<String> {
     Arc::new(id.to_string())
 }

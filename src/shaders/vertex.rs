@@ -22,7 +22,7 @@ vulkano_shaders::shader! {
     void main() {
         mat4 worldview = uniforms.rotation * uniforms.cam_rotation * uniforms.translation * uniforms.cam_translation;
 
-        v_normal = transpose(inverse(mat3(worldview))) * normal;
+        v_normal = normalize(transpose(inverse(mat3(worldview))) * normal);
         
         vec4 pos = uniforms.proj * worldview * vec4(position, 1.0);
 

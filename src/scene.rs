@@ -1,4 +1,4 @@
-use crate::{components::Camera, ecs::World, assets::Light};
+use crate::{assets::Light, components::Camera, ecs::World};
 use std::sync::{Arc, Mutex};
 
 pub const MAX_LIGHTS: usize = 255;
@@ -6,7 +6,7 @@ pub const MAX_LIGHTS: usize = 255;
 pub struct Scene {
     pub world: Arc<World>,
     pub camera: Mutex<Arc<Camera>>,
-    pub lights: Mutex<Vec<Arc<Light>>>
+    pub lights: Mutex<Vec<Arc<Light>>>,
 }
 
 impl Scene {

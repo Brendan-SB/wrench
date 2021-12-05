@@ -1,4 +1,5 @@
-use std::io;
+use obj::ObjError;
+use std::{error, io};
 use vulkano::{
     device::DeviceCreationError, instance::InstanceCreationError, memory::DeviceMemoryAllocError,
     pipeline::GraphicsPipelineCreationError, render_pass::RenderPassCreationError, OomError,
@@ -21,6 +22,8 @@ pub enum Error {
     RenderPassCreationError(RenderPassCreationError),
     GraphicsPipelineCreationError(GraphicsPipelineCreationError),
     DeviceMemoryAllocError(DeviceMemoryAllocError),
+    ObjError(ObjError),
+    Error(Box<dyn error::Error>),
 }
 
 impl From<InstanceCreationError> for Error {
@@ -68,5 +71,17 @@ impl From<GraphicsPipelineCreationError> for Error {
 impl From<DeviceMemoryAllocError> for Error {
     fn from(e: DeviceMemoryAllocError) -> Self {
         Self::DeviceMemoryAllocError(e)
+    }
+}
+
+impl From<ObjError> for Error {
+    fn from(e: ObjError) -> Self {
+        Self::ObjError(e)
+    }
+}
+
+impl From<Box<dyn error::Error>> for Error {
+    fn from(e: Box<dyn error::Error>) -> Self {
+        Self::Error(e)
     }
 }

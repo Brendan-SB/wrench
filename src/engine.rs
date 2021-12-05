@@ -4,7 +4,7 @@ use crate::{
     ecs,
     error::Error,
     scene::Scene,
-    shaders::{vertex, Shaders, fragment},
+    shaders::{fragment, vertex, Shaders},
     Matrix4, Rad, Vector3, Zero,
 };
 use std::sync::{Arc, Mutex};
@@ -153,7 +153,10 @@ impl Engine {
             CpuBufferPool::<vertex::ty::Data>::new(self.device.clone(), BufferUsage::all());
         let frag_uniform_buffer =
             CpuBufferPool::<fragment::ty::Data>::new(self.device.clone(), BufferUsage::all());
-        let mut lights_array = [fragment::ty::Light { position: Vector3::zero().into(), intensity: 0.0}; 1024];
+        let mut lights_array = [fragment::ty::Light {
+            position: Vector3::zero().into(),
+            intensity: 0.0,
+        }; 1024];
         let mut recreate_swapchain = false;
         let mut previous_frame_end = Some(sync::now(self.device.clone()).boxed());
 
@@ -293,9 +296,12 @@ impl Engine {
                                 };
                                 let frag_uniform_buffer_subbuffer = {
                                     let lights = scene.lights.lock().unwrap();
-                                    
+
                                     for (i, light) in lights.iter().enumerate() {
-                                        lights_array[i] = fragment::ty::Light { position: (*light.position.lock().unwrap()).into(), intensity: *light.intensity.lock().unwrap() };
+                                        lights_array[i] = fragment::ty::Light {
+                                            position: (*light.position.lock().unwrap()).into(),
+                                            intensity: *light.intensity.lock().unwrap(),
+                                        };
                                     }
 
                                     let uniform_data = fragment::ty::Data {

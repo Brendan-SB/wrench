@@ -1,7 +1,10 @@
 use crate::{
-    assets::{Mesh, Texture, Transform},
+    assets::{mesh::Vertex, Mesh, Texture, Transform},
     ecs::{self, reexports::*},
+    error::Error,
 };
+use obj::TexturedVertex;
+use std::io::BufRead;
 
 #[derive(Component)]
 pub struct Model {
@@ -28,5 +31,29 @@ impl Model {
             texture,
             transform,
         })
+    }
+
+    pub fn from_obj<R>(
+        id: Arc<String>,
+        texture: Arc<Texture>,
+        transform: Arc<Transform>,
+        reader: R,
+    ) -> Result<Arc<Self>, Error>
+    where
+        R: BufRead,
+    {
+        let obj = obj::load_obj(reader)?;
+        let mesh = Mesh::auto(
+            obj.vertices
+                .into_iter()
+                .map(|v: TexturedVertex| Vertex {
+                    position: [v.position[0], v.position[1], v.position[2]],
+                    uv: [v.texture[0], v.texture[1]],
+                })
+                .collect::<Vec<Vertex>>(),
+            obj.indices,
+        );
+
+        Ok(Self::new(id, mesh, texture, transform))
     }
 }

@@ -13,3 +13,4 @@ vulkano-win = "0.26.0"
 wecs = { path = "wecs" }
 wecs_derive = { path = "wecs_derive" }
 winit = "0.25.0"
+obj-rs = "0.7.0"

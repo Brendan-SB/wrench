@@ -4,8 +4,8 @@ use crate::{
     ecs,
     error::Error,
     scene::Scene,
-    shaders::{vertex, Shaders},
-    Matrix4, Rad,
+    shaders::{vertex, Shaders, fragment},
+    Matrix4, Rad, Vector3, Zero,
 };
 use std::sync::{Arc, Mutex};
 use vulkano::{
@@ -151,6 +151,9 @@ impl Engine {
     pub fn run(self) -> Result<(), Error> {
         let uniform_buffer =
             CpuBufferPool::<vertex::ty::Data>::new(self.device.clone(), BufferUsage::all());
+        let frag_uniform_buffer =
+            CpuBufferPool::<fragment::ty::Data>::new(self.device.clone(), BufferUsage::all());
+        let mut lights_array = [fragment::ty::Light { position: Vector3::zero().into(), intensity: 0.0}; 1024];
         let mut recreate_swapchain = false;
         let mut previous_frame_end = Some(sync::now(self.device.clone()).boxed());
 
@@ -288,6 +291,23 @@ impl Engine {
 
                                     Arc::new(uniform_buffer.next(uniform_data).unwrap())
                                 };
+                                let frag_uniform_buffer_subbuffer = {
+                                    let lights = scene.lights.lock().unwrap();
+                                    
+                                    for (i, light) in lights.iter().enumerate() {
+                                        lights_array[i] = fragment::ty::Light { position: (*light.position.lock().unwrap()).into(), intensity: *light.intensity.lock().unwrap() };
+                                    }
+
+                                    let uniform_data = fragment::ty::Data {
+                                        lights: fragment::ty::LightArray {
+                                            size: lights.len() as u32,
+                                            array: lights_array,
+                                            _dummy0: [0; 12],
+                                        },
+                                    };
+
+                                    Arc::new(frag_uniform_buffer.next(uniform_data).unwrap())
+                                };
                                 let set_layout =
                                     pipeline.layout().descriptor_set_layouts().get(0).unwrap();
                                 let mut set_builder =
@@ -300,6 +320,8 @@ impl Engine {
                                         model.texture.image.clone(),
                                         model.texture.sampler.clone(),
                                     )
+                                    .unwrap()
+                                    .add_buffer(frag_uniform_buffer_subbuffer)
                                     .unwrap();
 
                                 let set = Arc::new(set_builder.build().unwrap());

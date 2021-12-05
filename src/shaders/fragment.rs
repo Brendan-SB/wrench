@@ -6,15 +6,36 @@ vulkano_shaders::shader! {
 
     #define MAX_LIGHTS 1024
 
+    struct Light {
+        vec3 position;
+        float intensity;
+    };
+
+    struct LightArray {
+        uint size;
+        Light array[MAX_LIGHTS];
+    };
+
     layout(location = 0) in vec3 v_normal;
     layout(location = 1) in vec2 tex_coord;
+    layout(location = 2) in mat3 worldview;
 
     layout(location = 0) out vec4 f_color;
 
     layout(set = 0, binding = 1) uniform sampler2D tex;
 
+    layout(set = 0, binding = 2) uniform Data {
+        LightArray lights;
+    } uniforms;
+
     void main() {
-        f_color = texture(tex, tex_coord);
+        float brightness = 0.0;
+
+        for (uint i = 0; i < uniforms.lights.size; i++) {
+            brightness += dot(v_normal, normalize(worldview * uniforms.lights.array[i].position));
+        }
+        
+        f_color = texture(tex, tex_coord) * brightness;
     }
     "
 }

@@ -1,5 +1,8 @@
 use crate::{
-    assets::{mesh::Vertex, Mesh, Texture, Transform},
+    assets::{
+        mesh::{Normal, Vertex},
+        Mesh, Texture, Transform,
+    },
     ecs::{self, reexports::*},
     error::Error,
 };
@@ -43,16 +46,35 @@ impl Model {
         R: BufRead,
     {
         let obj = obj::load_obj(reader)?;
-        let mesh = Mesh::auto(
-            obj.vertices
-                .into_iter()
-                .map(|v: TexturedVertex| Vertex {
-                    position: [v.position[0], v.position[1], v.position[2]],
-                    uv: [v.texture[0], v.texture[1]],
-                })
-                .collect::<Vec<Vertex>>(),
-            obj.indices,
-        );
+
+        let mut vertices = Vec::new();
+        let mut normals = Vec::new();
+
+        for vertex in obj.vertices as Vec<TexturedVertex> {
+            let mut position = [0.0; 3];
+
+            for i in 0..3 {
+                position[i] = vertex.position[i];
+            }
+
+            let mut uv = [0.0; 2];
+
+            for i in 0..2 {
+                uv[i] = vertex.texture[i];
+            }
+
+            vertices.push(Vertex { position, uv });
+
+            let mut normal = [0.0; 3];
+
+            for i in 0..3 {
+                normal[i] = vertex.normal[i];
+            }
+
+            normals.push(Normal { normal });
+        }
+
+        let mesh = Mesh::new(vertices, obj.indices, normals);
 
         Ok(Self::new(id, mesh, texture, transform))
     }

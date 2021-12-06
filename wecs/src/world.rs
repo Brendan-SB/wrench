@@ -21,12 +21,34 @@ impl World {
         entity
     }
 
-    pub fn entities(&self) -> Arc<Mutex<Vec<Arc<Entity>>>> {
-        self.entities.clone()
+    pub fn entities(&self) -> Vec<Arc<Entity>> {
+        self.entities.lock().unwrap().clone()
     }
 
-    pub fn get(&self) -> Arc<Mutex<Vec<Arc<Entity>>>> {
-        self.entities.clone()
+    pub fn get(&self, id: Arc<String>) -> Vec<Arc<Entity>> {
+        self.entities
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|e| *e.id == *id)
+            .map(|e| e.clone())
+            .collect()
+    }
+
+    pub fn get_first(&self, id: Arc<String>) -> Option<Arc<Entity>> {
+        match self
+            .entities
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|e| *e.id == *id)
+            .map(|e| e.clone())
+            .collect::<Vec<Arc<Entity>>>()
+            .first()
+        {
+            Some(entity) => Some(entity.clone()),
+            None => None,
+        }
     }
 
     pub fn remove<T>(&self, entity: Arc<Entity>) {

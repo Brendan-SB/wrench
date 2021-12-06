@@ -37,10 +37,13 @@ impl Entity {
         }
     }
 
-    pub fn components(
-        &self,
-    ) -> Arc<Mutex<HashMap<Arc<String>, Arc<Mutex<Vec<Arc<dyn Component>>>>>>> {
-        self.components.clone()
+    pub fn components(&self) -> HashMap<Arc<String>, Vec<Arc<dyn Component>>> {
+        self.components
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|(k, v)| (k.clone(), v.lock().unwrap().clone()))
+            .collect()
     }
 
     pub fn get_type<T>(&self, tid: Arc<String>) -> Option<Arc<Vec<Arc<T>>>>
@@ -52,9 +55,8 @@ impl Entity {
                 components
                     .lock()
                     .unwrap()
-                    .clone()
-                    .into_iter()
-                    .map(|c| c.as_any().downcast::<T>().unwrap())
+                    .iter()
+                    .map(|c| c.clone().as_any().downcast::<T>().unwrap())
                     .collect::<Vec<Arc<T>>>(),
             )),
 
@@ -71,10 +73,9 @@ impl Entity {
                 components
                     .lock()
                     .unwrap()
-                    .clone()
-                    .into_iter()
+                    .iter()
                     .filter(|c| *c.id() == *id)
-                    .map(|c| c.as_any().downcast::<T>().unwrap())
+                    .map(|c| c.clone().as_any().downcast::<T>().unwrap())
                     .collect::<Vec<Arc<T>>>(),
             )),
 

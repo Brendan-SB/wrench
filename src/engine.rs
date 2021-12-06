@@ -161,9 +161,9 @@ impl Engine {
         let mut previous_frame_end = Some(sync::now(self.device.clone()).boxed());
 
         self.event_loop.run(move |event, _, control_flow| {
-            for entity in &*self.scene.lock().unwrap().world.entities().lock().unwrap() {
-                for (_, v) in &*entity.components().lock().unwrap() {
-                    for component in &*v.lock().unwrap() {
+            for entity in self.scene.lock().unwrap().world.entities() {
+                for (_, v) in entity.components() {
+                    for component in v {
                         component.on_update();
                     }
                 }
@@ -252,7 +252,7 @@ impl Engine {
                         )
                         .unwrap();
 
-                    for entity in &*scene.world.entities().lock().unwrap() {
+                    for entity in scene.world.entities() {
                         if let Some(models) = entity.get_type::<Model>(ecs::id("model")) {
                             for model in &*models {
                                 let uniform_buffer_subbuffer = {

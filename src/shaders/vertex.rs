@@ -10,7 +10,7 @@ vulkano_shaders::shader! {
 
     layout(location = 0) out vec3 v_normal;
     layout(location = 1) out vec2 tex_coords;
-    layout(location = 2) out mat3 wv;
+    layout(location = 2) out mat3 cv;
 
     layout(set = 0, binding = 0) uniform Data {
         mat4 rotation;
@@ -21,11 +21,15 @@ vulkano_shaders::shader! {
     } uniforms;
 
     void main() {
-        mat4 worldview = uniforms.rotation * uniforms.cam_rotation * uniforms.translation * uniforms.cam_translation;
+        mat4 cam_transform = uniforms.cam_rotation * uniforms.cam_translation;
+        mat4 transform = uniforms.translation * uniforms.rotation;
 
-        wv = transpose(inverse(mat3(worldview)));
-        v_normal = normalize(wv * normal);
-        
+        v_normal = normalize(transpose(inverse(mat3(transform))) * normal);
+
+        mat4 worldview = cam_transform * transform;
+
+        cv = transpose(inverse(mat3(uniforms.cam_translation)));
+
         vec4 pos = uniforms.proj * worldview * vec4(position, 1.0);
 
         tex_coords = uv;

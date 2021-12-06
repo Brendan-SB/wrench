@@ -290,6 +290,14 @@ impl Engine {
                                             -*camera.transform.position.lock().unwrap(),
                                         )
                                         .into(),
+                                        scale: {
+                                            let scale = model.transform.scale.lock().unwrap();
+
+                                            Matrix4::from_nonuniform_scale(
+                                                scale.x, scale.y, scale.z,
+                                            )
+                                        }
+                                        .into(),
                                     };
 
                                     Arc::new(uniform_buffer.next(uniform_data).unwrap())

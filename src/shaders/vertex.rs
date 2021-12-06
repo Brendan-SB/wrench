@@ -18,11 +18,12 @@ vulkano_shaders::shader! {
         mat4 proj;
         mat4 translation;
         mat4 cam_translation;
+        mat4 scale;
     } uniforms;
 
     void main() {
         mat4 cam_transform = uniforms.cam_rotation * uniforms.cam_translation;
-        mat4 transform = uniforms.translation * uniforms.rotation;
+        mat4 transform = uniforms.translation * uniforms.rotation * uniforms.scale;
 
         v_normal = normalize(transpose(inverse(mat3(transform))) * normal);
 

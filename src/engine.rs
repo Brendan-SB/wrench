@@ -162,6 +162,12 @@ impl Engine {
 
         self.event_loop.run(move |event, _, control_flow| {
             for entity in self.scene.lock().unwrap().world.entities() {
+                for (_, v) in entity.components() {
+                    for component in v {
+                        component.on_update();
+                    }
+                }
+
                 if let Some(event_handlers) =
                     entity.get_type::<EventHandler>(ecs::id("event handler"))
                 {

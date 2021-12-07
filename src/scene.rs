@@ -1,8 +1,6 @@
 use crate::{assets::Light, components::Camera, ecs::World};
 use std::sync::{Arc, Mutex};
 
-pub const MAX_LIGHTS: usize = 255;
-
 pub struct Scene {
     pub world: Arc<World>,
     pub camera: Mutex<Arc<Camera>>,

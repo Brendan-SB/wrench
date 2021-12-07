@@ -30,13 +30,13 @@ vulkano_shaders::shader! {
     } uniforms;
 
     void main() {
-        float brightness = 0.0;
+        float brightness = uniforms.lights.ambient;
 
         for (uint i = 0; i < uniforms.lights.size; i++) {
             brightness += dot(v_normal, normalize(camview * uniforms.lights.array[i].position)) * uniforms.lights.array[i].intensity;
         }
         
-        f_color = texture(tex, tex_coord) * (brightness + uniforms.lights.ambient);
+        f_color = texture(tex, tex_coord) * brightness;
     }
     "
 }

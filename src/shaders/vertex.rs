@@ -19,21 +19,17 @@ vulkano_shaders::shader! {
         mat4 translation;
         mat4 cam_translation;
         mat4 scale;
+        mat4 transform;
+        mat4 cam_transform;
     } uniforms;
 
     void main() {
-        mat4 cam_transform = uniforms.cam_rotation * uniforms.cam_translation;
-        mat4 transform = uniforms.translation * uniforms.rotation * uniforms.scale;
-
-        v_normal = normalize(transpose(inverse(mat3(transform))) * normal);
-
-        mat4 worldview = cam_transform * transform;
-
-        cv = transpose(inverse(mat3(uniforms.cam_translation)));
-
+        mat4 worldview = uniforms.cam_transform * uniforms.transform;
         vec4 pos = uniforms.proj * worldview * vec4(position, 1.0);
 
+        v_normal = normalize(transpose(inverse(mat3(uniforms.transform))) * normal);
         tex_coords = uv;
+        cv = transpose(inverse(mat3(uniforms.cam_translation)));
         gl_Position = pos;
     }
     "

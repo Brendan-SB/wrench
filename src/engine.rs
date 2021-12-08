@@ -271,25 +271,25 @@ impl Engine {
                                         *camera.near.lock().unwrap(),
                                         *camera.far.lock().unwrap(),
                                     );
-                                    let view = {
+                                    let cam_rotation = {
                                         let rotation = camera.transform.rotation.lock().unwrap();
 
                                         Matrix4::from_angle_x(Rad(-rotation.x))
                                             * Matrix4::from_angle_y(Rad(-rotation.y))
                                             * Matrix4::from_angle_z(Rad(-rotation.z))
                                     };
+                                    let translation = Matrix4::from_translation(
+                                            *model.transform.position.lock().unwrap(),
+                                        );
+                                    let cam_translation = Matrix4::from_translation(
+                                            -*camera.transform.position.lock().unwrap(),
+                                        );
                                     let uniform_data = vertex::ty::Data {
                                         rotation: rotation.into(),
-                                        cam_rotation: view.into(),
+                                        cam_rotation: cam_rotation.into(),
                                         proj: proj.into(),
-                                        translation: Matrix4::from_translation(
-                                            *model.transform.position.lock().unwrap(),
-                                        )
-                                        .into(),
-                                        cam_translation: Matrix4::from_translation(
-                                            -*camera.transform.position.lock().unwrap(),
-                                        )
-                                        .into(),
+                                        translation: translation.into(),
+                                        cam_translation: cam_translation.into(),
                                         scale: {
                                             let scale = model.transform.scale.lock().unwrap();
 
@@ -298,6 +298,8 @@ impl Engine {
                                             )
                                         }
                                         .into(),
+                                        transform: (rotation * translation).into(),
+                                        cam_transform: (cam_rotation * cam_translation).into(),
                                     };
 
                                     Arc::new(uniform_buffer.next(uniform_data).unwrap())

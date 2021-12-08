@@ -2,6 +2,7 @@ use crate::{
     assets::{
         mesh::{Normal, Vertex},
         Mesh, Texture, Transform,
+        Material,
     },
     ecs::{self, reexports::*},
     error::Error,
@@ -14,8 +15,9 @@ pub struct Model {
     pub entity: Arc<Mutex<Option<Arc<Entity>>>>,
     pub id: Arc<String>,
     pub tid: Arc<String>,
-    pub mesh: Arc<Mesh>,
-    pub texture: Arc<Texture>,
+    pub mesh: Mutex<Arc<Mesh>>,
+    pub texture: Mutex<Arc<Texture>>,
+    pub material: Mutex<Arc<Material>>,
     pub transform: Arc<Transform>,
 }
 
@@ -24,14 +26,16 @@ impl Model {
         id: Arc<String>,
         mesh: Arc<Mesh>,
         texture: Arc<Texture>,
+        material: Arc<Material>,
         transform: Arc<Transform>,
     ) -> Arc<Self> {
         Arc::new(Self {
             entity: Arc::new(Mutex::new(None)),
             id,
             tid: ecs::id("model"),
-            mesh,
-            texture,
+            mesh: Mutex::new(mesh),
+            texture: Mutex::new(texture),
+            material: Mutex::new(material),
             transform,
         })
     }
@@ -39,6 +43,7 @@ impl Model {
     pub fn from_obj<R>(
         id: Arc<String>,
         texture: Arc<Texture>,
+        material: Arc<Material>,
         transform: Arc<Transform>,
         reader: R,
     ) -> Result<Arc<Self>, Error>
@@ -75,6 +80,6 @@ impl Model {
 
         let mesh = Mesh::new(vertices, obj.indices, normals);
 
-        Ok(Self::new(id, mesh, texture, transform))
+        Ok(Self::new(id, mesh, texture, material, transform))
     }
 }

@@ -318,7 +318,7 @@ impl Engine {
                                         lights: fragment::ty::LightArray {
                                             size: lights.len() as u32,
                                             array: lights_array,
-                                            ambient: *scene.ambient.lock().unwrap(),
+                                            ambient: model.material.lock().unwrap().ambient,
                                             _dummy0: [0; 8],
                                         },
                                     };
@@ -329,13 +329,13 @@ impl Engine {
                                     pipeline.layout().descriptor_set_layouts().get(0).unwrap();
                                 let mut set_builder =
                                     PersistentDescriptorSet::start(set_layout.clone());
-
+                                let texture = model.texture.lock().unwrap();
                                 set_builder
                                     .add_buffer(uniform_buffer_subbuffer)
                                     .unwrap()
                                     .add_sampled_image(
-                                        model.texture.image.clone(),
-                                        model.texture.sampler.clone(),
+                                        texture.image.clone(),
+                                        texture.sampler.clone(),
                                     )
                                     .unwrap()
                                     .add_buffer(frag_uniform_buffer_subbuffer)
@@ -347,25 +347,26 @@ impl Engine {
                                     recreate_swapchain = true;
                                 }
 
+                                let mesh = model.mesh.lock().unwrap();
                                 let normal_buffer = CpuAccessibleBuffer::from_iter(
                                     self.device.clone(),
                                     BufferUsage::all(),
                                     false,
-                                    model.mesh.normals.iter().cloned(),
+                                    mesh.normals.iter().cloned(),
                                 )
                                 .unwrap();
                                 let vertex_buffer = CpuAccessibleBuffer::from_iter(
                                     self.device.clone(),
                                     BufferUsage::all(),
                                     false,
-                                    model.mesh.vertices.iter().cloned(),
+                                    mesh.vertices.iter().cloned(),
                                 )
                                 .unwrap();
                                 let index_buffer = CpuAccessibleBuffer::from_iter(
                                     self.device.clone(),
                                     BufferUsage::all(),
                                     false,
-                                    model.mesh.indices.iter().cloned(),
+                                    mesh.indices.iter().cloned(),
                                 )
                                 .unwrap();
 

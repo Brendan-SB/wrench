@@ -5,7 +5,7 @@ use crate::{
     error::Error,
     scene::Scene,
     shaders::{fragment, vertex, Shaders},
-    Matrix4, Rad, Vector3, Zero, Vector4
+    Matrix4, Rad, Vector3, Vector4, Zero,
 };
 use std::sync::{Arc, Mutex};
 use vulkano::{
@@ -282,11 +282,11 @@ impl Engine {
                                             * Matrix4::from_angle_z(Rad(-rotation.z))
                                     };
                                     let translation = Matrix4::from_translation(
-                                            *model.transform.position.lock().unwrap(),
-                                        );
+                                        *model.transform.position.lock().unwrap(),
+                                    );
                                     let cam_translation = Matrix4::from_translation(
-                                            -*camera.transform.position.lock().unwrap(),
-                                        );
+                                        -*camera.transform.position.lock().unwrap(),
+                                    );
                                     let transform = rotation * translation;
                                     let cam_transform = cam_rotation * cam_translation;
                                     let uniform_data = vertex::ty::Data {

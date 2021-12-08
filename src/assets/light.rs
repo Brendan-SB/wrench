@@ -1,4 +1,4 @@
-use crate::{Vector4, Vector3};
+use crate::{Vector3, Vector4};
 use std::sync::{Arc, Mutex};
 
 pub struct Light {

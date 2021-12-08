@@ -1,6 +1,6 @@
 use crate::{error::Error, InnerSpace, Vector3, Zero};
-use std::{io::BufRead, sync::Arc};
 use obj::TexturedVertex;
+use std::{io::BufRead, sync::Arc};
 
 #[derive(Default, Copy, Clone)]
 pub struct Vertex {
@@ -50,9 +50,7 @@ impl Mesh {
         })
     }
 
-    pub fn from_obj<R>(
-        reader: R,
-    ) -> Result<Arc<Self>, Error>
+    pub fn from_obj<R>(reader: R) -> Result<Arc<Self>, Error>
     where
         R: BufRead,
     {

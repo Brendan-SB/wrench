@@ -8,11 +8,7 @@ pub struct Scene {
 }
 
 impl Scene {
-    pub fn new(
-        world: Arc<World>,
-        camera: Arc<Camera>,
-        lights: Vec<Arc<Light>>,
-    ) -> Arc<Self> {
+    pub fn new(world: Arc<World>, camera: Arc<Camera>, lights: Vec<Arc<Light>>) -> Arc<Self> {
         Arc::new(Self {
             world,
             camera: Mutex::new(camera),

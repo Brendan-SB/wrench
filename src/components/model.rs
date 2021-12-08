@@ -1,8 +1,5 @@
 use crate::{
-    assets::{
-        Mesh, Texture, Transform,
-        Material,
-    },
+    assets::{Material, Mesh, Texture, Transform},
     ecs::{self, reexports::*},
     Vector4,
 };

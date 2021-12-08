@@ -6,8 +6,6 @@ pub struct Material {
 
 impl Material {
     pub fn new(ambient: f32) -> Arc<Self> {
-        Arc::new(Self {
-            ambient,
-        })
+        Arc::new(Self { ambient })
     }
 }

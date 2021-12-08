@@ -5,7 +5,7 @@ use crate::{
     error::Error,
     scene::Scene,
     shaders::{fragment, vertex, Shaders},
-    Matrix4, Rad, Vector3, Zero,
+    Matrix4, Rad, Vector3, Zero, Vector4
 };
 use std::sync::{Arc, Mutex};
 use vulkano::{
@@ -155,7 +155,10 @@ impl Engine {
             CpuBufferPool::<fragment::ty::Data>::new(self.device.clone(), BufferUsage::all());
         let mut lights_array = [fragment::ty::Light {
             position: Vector3::zero().into(),
+            color: Vector4::zero().into(),
             intensity: 0.0,
+            _dummy0: [0; 4],
+            _dummy1: [0; 12],
         }; 1024];
         let mut recreate_swapchain = false;
         let mut previous_frame_end = Some(sync::now(self.device.clone()).boxed());
@@ -248,7 +251,7 @@ impl Engine {
                         .begin_render_pass(
                             framebuffers[image_num].clone(),
                             SubpassContents::Inline,
-                            vec![[0.0, 0.0, 1.0, 1.0].into(), 1_f32.into()],
+                            vec![[0.1, 0.1, 0.1, 1.0].into(), 1_f32.into()],
                         )
                         .unwrap();
 
@@ -284,6 +287,8 @@ impl Engine {
                                     let cam_translation = Matrix4::from_translation(
                                             -*camera.transform.position.lock().unwrap(),
                                         );
+                                    let transform = rotation * translation;
+                                    let cam_transform = cam_rotation * cam_translation;
                                     let uniform_data = vertex::ty::Data {
                                         rotation: rotation.into(),
                                         cam_rotation: cam_rotation.into(),
@@ -298,8 +303,9 @@ impl Engine {
                                             )
                                         }
                                         .into(),
-                                        transform: (rotation * translation).into(),
-                                        cam_transform: (cam_rotation * cam_translation).into(),
+                                        transform: transform.into(),
+                                        cam_transform: cam_transform.into(),
+                                        worldview: (cam_transform * transform).into(),
                                     };
 
                                     Arc::new(uniform_buffer.next(uniform_data).unwrap())
@@ -310,17 +316,22 @@ impl Engine {
                                     for (i, light) in lights.iter().enumerate() {
                                         lights_array[i] = fragment::ty::Light {
                                             position: (*light.position.lock().unwrap()).into(),
+                                            color: (*light.color.lock().unwrap()).into(),
                                             intensity: *light.intensity.lock().unwrap(),
+                                            _dummy0: [0; 4],
+                                            _dummy1: [0; 12],
                                         };
                                     }
 
                                     let uniform_data = fragment::ty::Data {
+                                        color: (*model.color.lock().unwrap()).into(),
+                                        ambient: model.material.lock().unwrap().ambient,
                                         lights: fragment::ty::LightArray {
                                             size: lights.len() as u32,
                                             array: lights_array,
-                                            ambient: model.material.lock().unwrap().ambient,
-                                            _dummy0: [0; 8],
+                                            _dummy0: [0; 12],
                                         },
+                                        _dummy0: [0; 12],
                                     };
 
                                     Arc::new(frag_uniform_buffer.next(uniform_data).unwrap())

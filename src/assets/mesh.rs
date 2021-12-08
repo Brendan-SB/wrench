@@ -1,5 +1,6 @@
-use crate::{InnerSpace, Vector3, Zero};
-use std::sync::Arc;
+use crate::{error::Error, InnerSpace, Vector3, Zero};
+use std::{io::BufRead, sync::Arc};
+use obj::TexturedVertex;
 
 #[derive(Default, Copy, Clone)]
 pub struct Vertex {
@@ -47,5 +48,42 @@ impl Mesh {
             indices,
             normals,
         })
+    }
+
+    pub fn from_obj<R>(
+        reader: R,
+    ) -> Result<Arc<Self>, Error>
+    where
+        R: BufRead,
+    {
+        let obj = obj::load_obj(reader)?;
+        let mut vertices = Vec::new();
+        let mut normals = Vec::new();
+
+        for vertex in obj.vertices as Vec<TexturedVertex> {
+            let mut position = [0.0; 3];
+
+            for i in 0..3 {
+                position[i] = vertex.position[i];
+            }
+
+            let mut uv = [0.0; 2];
+
+            for i in 0..2 {
+                uv[i] = vertex.texture[i];
+            }
+
+            vertices.push(Vertex { position, uv });
+
+            let mut normal = [0.0; 3];
+
+            for i in 0..3 {
+                normal[i] = vertex.normal[i];
+            }
+
+            normals.push(Normal { normal });
+        }
+
+        Ok(Self::new(vertices, obj.indices, normals))
     }
 }

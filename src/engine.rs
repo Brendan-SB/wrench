@@ -305,7 +305,6 @@ impl Engine {
                                         .into(),
                                         transform: transform.into(),
                                         cam_transform: cam_transform.into(),
-                                        worldview: (cam_transform * transform).into(),
                                     };
 
                                     Arc::new(uniform_buffer.next(uniform_data).unwrap())

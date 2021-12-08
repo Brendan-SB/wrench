@@ -17,12 +17,13 @@ layout(set = 0, binding = 0) uniform Data {
     mat4 scale;
     mat4 transform;
     mat4 cam_transform;
-    mat4 worldview;
 } uniforms;
 
 void main() {
+    mat4 world_view = uniforms.cam_transform * inverse(uniforms.transform);
+
     v_normal = normalize(transpose(inverse(mat3(uniforms.transform))) * normal);
     tex_coords = uv;
-    cv = transpose(inverse(mat3(uniforms.cam_translation)));
-    gl_Position = uniforms.proj * uniforms.worldview * uniforms.scale * vec4(position, 1.0);
+    cv = transpose(inverse(mat3(uniforms.cam_translation * inverse(uniforms.translation))));
+    gl_Position = uniforms.proj * world_view * uniforms.scale * vec4(position, 1.0);
 }

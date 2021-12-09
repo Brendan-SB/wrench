@@ -148,7 +148,15 @@ impl Engine {
         Self::new(0, scene)
     }
 
-    pub fn run(self) -> Result<(), Error> {
+    pub fn init(self) -> Result<(), Error> {
+        for entity in self.scene.lock().unwrap().world.entities() {
+            for (_, v) in entity.components() {
+                for component in v {
+                    component.on_init();
+                }
+            }
+        }
+
         let uniform_buffer =
             CpuBufferPool::<vertex::ty::Data>::new(self.device.clone(), BufferUsage::all());
         let frag_uniform_buffer =

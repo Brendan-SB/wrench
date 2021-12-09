@@ -82,7 +82,7 @@ impl Engine {
             Some(queue) => queue,
             None => return Err(Error::NoQueue),
         };
-        let shaders = Arc::new(Shaders::new(device.clone())?);
+        let shaders = Shaders::new(device.clone())?;
         let (swapchain, images) = {
             let caps = surface.capabilities(physical).unwrap();
             let alpha = caps.supported_composite_alpha.iter().next().unwrap();
@@ -152,7 +152,7 @@ impl Engine {
         for entity in self.scene.lock().unwrap().world.entities() {
             for (_, v) in entity.components() {
                 for component in v {
-                    component.on_init();
+                    component.init();
                 }
             }
         }
@@ -175,7 +175,7 @@ impl Engine {
             for entity in self.scene.lock().unwrap().world.entities() {
                 for (_, v) in entity.components() {
                     for component in v {
-                        component.on_update();
+                        component.update();
                     }
                 }
 

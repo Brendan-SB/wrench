@@ -15,7 +15,7 @@ pub trait Component: Send + Sync + 'static {
 
     fn as_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync + 'static>;
     
-    fn on_init(&self) {}
+    fn init(&self) {}
 
-    fn on_update(&self) {}
+    fn update(&self) {}
 }

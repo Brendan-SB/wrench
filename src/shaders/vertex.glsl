@@ -6,7 +6,8 @@ layout(location = 2) in vec3 normal;
 
 layout(location = 0) out vec3 v_normal;
 layout(location = 1) out vec2 tex_coords;
-layout(location = 2) out mat4 cv;
+layout(location = 2) out vec3 f_pos;
+layout(location = 3) out mat4 cv;
 
 layout(set = 0, binding = 0) uniform Data {
     mat4 rotation;
@@ -23,8 +24,9 @@ void main() {
     mat4 global_transform = inverse(uniforms.transform);
     mat4 world_view = uniforms.cam_transform * global_transform;
 
-    v_normal = normalize(-(mat3(global_transform) * normal));
+    v_normal = normalize(normal);
     tex_coords = uv;
-    cv = uniforms.cam_translation;
+    f_pos = vec3(uniforms.cam_translation * uniforms.translation * vec4(position, 1.0));
+    cv = uniforms.cam_translation * uniforms.translation;
     gl_Position = uniforms.proj * world_view * uniforms.scale * vec4(position, 1.0);
 }

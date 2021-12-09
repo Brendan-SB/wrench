@@ -23,7 +23,7 @@ void main() {
     mat4 global_transform = inverse(uniforms.transform);
     mat4 world_view = uniforms.cam_transform * global_transform;
 
-    v_normal = normalize(mat3(global_transform) * normal);
+    v_normal = normalize(-(mat3(global_transform) * normal));
     tex_coords = uv;
     cv = uniforms.cam_translation;
     gl_Position = uniforms.proj * world_view * uniforms.scale * vec4(position, 1.0);

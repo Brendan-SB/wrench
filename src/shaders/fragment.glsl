@@ -31,7 +31,7 @@ void main() {
     vec4 brightness = vec4(uniforms.ambient);
 
     for (uint i = 0; i < uniforms.lights.size; i++) {
-        brightness += dot(v_normal, normalize(-(mat3(cam_view) * uniforms.lights.array[i].position))) * uniforms.lights.array[i].intensity * uniforms.lights.array[i].color;
+        brightness += dot(v_normal, normalize(mat3(cam_view) * uniforms.lights.array[i].position)) * uniforms.lights.array[i].intensity * uniforms.lights.array[i].color;
     }
     
     f_color = texture(tex, tex_coord) * uniforms.color * brightness;

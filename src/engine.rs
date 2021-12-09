@@ -285,7 +285,7 @@ impl Engine {
                                         *model.transform.position.lock().unwrap(),
                                     );
                                     let cam_translation = Matrix4::from_translation(
-                                        -*camera.transform.position.lock().unwrap(),
+                                        *camera.transform.position.lock().unwrap(),
                                     );
                                     let transform = rotation * translation;
                                     let cam_transform = cam_rotation * cam_translation;

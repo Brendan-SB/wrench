@@ -348,6 +348,7 @@ impl Engine {
                                 let mut set_builder =
                                     PersistentDescriptorSet::start(set_layout.clone());
                                 let texture = model.texture.lock().unwrap();
+
                                 set_builder
                                     .add_buffer(uniform_buffer_subbuffer)
                                     .unwrap()
@@ -495,9 +496,5 @@ impl Engine {
         );
 
         Ok((pipeline, framebuffers))
-    }
-
-    pub fn physical_index(&self) -> usize {
-        self.physical_index
     }
 }

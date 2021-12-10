@@ -323,7 +323,8 @@ impl Engine {
 
                                     for (i, light) in lights.iter().enumerate() {
                                         lights_array[i] = fragment::ty::Light {
-                                            position: (*light.transform.position.lock().unwrap()).into(),
+                                            position: (*light.transform.position.lock().unwrap())
+                                                .into(),
                                             color: (*light.color.lock().unwrap()).into(),
                                             intensity: *light.intensity.lock().unwrap(),
                                             _dummy0: [0; 4],

@@ -285,9 +285,9 @@ impl Engine {
                                     let cam_rotation = {
                                         let rotation = camera.transform.rotation.lock().unwrap();
 
-                                        Matrix4::from_angle_x(Rad(-rotation.x))
-                                            * Matrix4::from_angle_y(Rad(-rotation.y))
-                                            * Matrix4::from_angle_z(Rad(-rotation.z))
+                                        Matrix4::from_angle_x(Rad(rotation.x))
+                                            * Matrix4::from_angle_y(Rad(rotation.y))
+                                            * Matrix4::from_angle_z(Rad(rotation.z))
                                     };
                                     let translation = Matrix4::from_translation(
                                         *model.transform.position.lock().unwrap(),

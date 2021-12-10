@@ -9,7 +9,7 @@ struct Light {
 };
 
 struct LightArray {
-    uint size;
+    uint len;
     Light array[MAX_LIGHTS];
 };
 
@@ -31,7 +31,7 @@ layout(set = 0, binding = 2) uniform Data {
 void main() {
     vec4 brightness = vec4(uniforms.ambient);
 
-    for (uint i = 0; i < uniforms.lights.size; i++) {
+    for (uint i = 0; i < uniforms.lights.len; i++) {
         brightness += dot(v_normal, normalize(f_pos - uniforms.lights.array[i].position)) * uniforms.lights.array[i].intensity * uniforms.lights.array[i].color;
     }
     

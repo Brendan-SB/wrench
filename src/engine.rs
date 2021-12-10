@@ -103,24 +103,24 @@ impl Engine {
                 .unwrap()
         };
         let render_pass = Arc::new(vulkano::single_pass_renderpass!(device.clone(),
-                attachments: {
-            color: {
-                load: Clear,
-                store: Store,
-                format: swapchain.format(),
-                samples: 1,
+            attachments: {
+                color: {
+                    load: Clear,
+                    store: Store,
+                    format: swapchain.format(),
+                    samples: 1,
+                },
+                depth: {
+                    load: Clear,
+                    store: DontCare,
+                    format: Format::D16_UNORM,
+                    samples: 1,
+                }
             },
-            depth: {
-                load: Clear,
-                store: DontCare,
-                format: Format::D16_UNORM,
-                samples: 1,
+            pass: {
+                color: [color],
+                depth_stencil: {depth}
             }
-        },
-        pass: {
-            color: [color],
-            depth_stencil: {depth}
-        }
         )?);
         let (pipeline, framebuffers) = Self::window_size_dependent_setup(
             &images,
@@ -334,7 +334,7 @@ impl Engine {
                                         color: (*model.color.lock().unwrap()).into(),
                                         ambient: model.material.lock().unwrap().ambient,
                                         lights: fragment::ty::LightArray {
-                                            size: lights.len() as u32,
+                                            len: lights.len() as u32,
                                             array: lights_array,
                                             _dummy0: [0; 12],
                                         },
@@ -454,8 +454,7 @@ impl Engine {
         let dimensions = images[0].dimensions();
         let depth_buffer = ImageView::new(
             AttachmentImage::transient(device.clone(), dimensions, Format::D16_UNORM).unwrap(),
-        )
-        .unwrap();
+        )?;
         let framebuffers = images
             .iter()
             .map(|image| {

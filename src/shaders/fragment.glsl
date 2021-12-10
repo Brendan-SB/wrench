@@ -32,7 +32,7 @@ void main() {
     vec4 brightness = vec4(uniforms.ambient);
 
     for (uint i = 0; i < uniforms.lights.len; i++) {
-        brightness += dot(v_normal, normalize(f_pos - uniforms.lights.array[i].position)) * uniforms.lights.array[i].intensity * uniforms.lights.array[i].color;
+        brightness += dot(v_normal, normalize(uniforms.lights.array[i].position - f_pos)) * uniforms.lights.array[i].intensity * uniforms.lights.array[i].color;
     }
     
     f_color = texture(tex, tex_coord) * uniforms.color * brightness;

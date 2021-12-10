@@ -1,16 +1,16 @@
-use crate::{Vector3, Vector4};
+use crate::{Vector4, assets::Transform};
 use std::sync::{Arc, Mutex};
 
 pub struct Light {
-    pub position: Mutex<Vector3<f32>>,
+    pub transform: Arc<Transform>,
     pub color: Mutex<Vector4<f32>>,
     pub intensity: Mutex<f32>,
 }
 
 impl Light {
-    pub fn new(position: Vector3<f32>, color: Vector4<f32>, intensity: f32) -> Arc<Self> {
+    pub fn new(transform: Arc<Transform>, color: Vector4<f32>, intensity: f32) -> Arc<Self> {
         Arc::new(Self {
-            position: Mutex::new(position),
+            transform: transform,
             color: Mutex::new(color),
             intensity: Mutex::new(intensity),
         })

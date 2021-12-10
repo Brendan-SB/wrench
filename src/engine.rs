@@ -253,13 +253,14 @@ impl Engine {
                         CommandBufferUsage::OneTimeSubmit,
                     )
                     .unwrap();
+                    let bg: [f32; 4] = (*scene.bg.lock().unwrap()).into();
 
                     builder
                         .bind_pipeline_graphics(pipeline.clone())
                         .begin_render_pass(
                             framebuffers[image_num].clone(),
                             SubpassContents::Inline,
-                            vec![[0.1, 0.1, 0.1, 1.0].into(), 1_f32.into()],
+                            vec![bg.into(), 1_f32.into()],
                         )
                         .unwrap();
 
@@ -322,7 +323,7 @@ impl Engine {
 
                                     for (i, light) in lights.iter().enumerate() {
                                         lights_array[i] = fragment::ty::Light {
-                                            position: (*light.position.lock().unwrap()).into(),
+                                            position: (*light.transform.position.lock().unwrap()).into(),
                                             color: (*light.color.lock().unwrap()).into(),
                                             intensity: *light.intensity.lock().unwrap(),
                                             _dummy0: [0; 4],

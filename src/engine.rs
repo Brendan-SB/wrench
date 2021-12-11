@@ -332,15 +332,18 @@ impl Engine {
                                         };
                                     }
 
+                                    let material = model.material.lock().unwrap();
                                     let uniform_data = fragment::ty::Data {
                                         color: (*model.color.lock().unwrap()).into(),
-                                        ambient: model.material.lock().unwrap().ambient,
+                                        ambient: *material.ambient.lock().unwrap(),
+                                        diff_strength: *material.diff_strength.lock().unwrap(),
+                                        spec_strength: *material.spec_strength.lock().unwrap(),
                                         lights: fragment::ty::LightArray {
                                             len: lights.len() as u32,
                                             array: lights_array,
                                             _dummy0: [0; 12],
                                         },
-                                        _dummy0: [0; 12],
+                                        _dummy0: [0; 4],
                                     };
 
                                     Arc::new(frag_uniform_buffer.next(uniform_data).unwrap())

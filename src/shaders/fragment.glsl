@@ -13,7 +13,7 @@ struct LightArray {
     Light array[MAX_LIGHTS];
 };
 
-layout(location = 0) in vec3 v_normal;
+layout(location = 0) in vec3 normal;
 layout(location = 1) in vec2 tex_coord;
 layout(location = 2) in vec3 f_pos;
 layout(location = 3) in mat4 cam_translation;
@@ -25,6 +25,8 @@ layout(set = 0, binding = 1) uniform sampler2D tex;
 layout(set = 0, binding = 2) uniform Data {
     vec4 color;
     float ambient;
+    float diff_strength;
+    float spec_strength;
     LightArray lights;
 } uniforms;
 
@@ -33,8 +35,15 @@ void main() {
     vec4 brightness = vec4(uniforms.ambient);
 
     for (uint i = 0; i < uniforms.lights.len; i++) {
-        vec3 light_dir = cam_offset * uniforms.lights.array[i].position - f_pos;
-        brightness += dot(v_normal, normalize(light_dir)) * uniforms.lights.array[i].intensity * uniforms.lights.array[i].color;
+        vec3 light_dir = normalize((cam_offset * uniforms.lights.array[i].position) - f_pos);
+        vec3 view_dir = normalize(cam_offset * -f_pos);
+        vec3 reflect_dir = reflect(normalize(-light_dir), normal);
+
+        float diff = max(dot(normal, light_dir), 0.0) * uniforms.diff_strength;
+        float spec = pow(max(dot(view_dir, reflect_dir), 0.0), 32) * uniforms.spec_strength;
+
+        brightness += (diff + spec) * uniforms.lights.array[i].intensity * uniforms.lights.array[i].color;
+
     }
     
     f_color = texture(tex, tex_coord) * uniforms.color * brightness;

@@ -24,7 +24,7 @@ void main() {
     mat4 global_transform = inverse(uniforms.transform);
     mat4 world_view = uniforms.cam_transform * global_transform;
 
-    v_normal = normalize(normal);
+    v_normal = normalize(mat3(global_transform) * normal);
     tex_coords = uv;
     f_pos = vec3(global_transform * vec4(position, 1.0));
     cam_translation = uniforms.cam_translation;

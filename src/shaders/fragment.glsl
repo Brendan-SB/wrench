@@ -29,10 +29,12 @@ layout(set = 0, binding = 2) uniform Data {
 } uniforms;
 
 void main() {
+    mat3 cam_offset = mat3(-cam_translation);
     vec4 brightness = vec4(uniforms.ambient);
 
     for (uint i = 0; i < uniforms.lights.len; i++) {
-        brightness += dot(v_normal, normalize(mat3(-cam_translation) * uniforms.lights.array[i].position - f_pos)) * uniforms.lights.array[i].intensity * uniforms.lights.array[i].color;
+        vec3 light_dir = cam_offset * uniforms.lights.array[i].position - f_pos;
+        brightness += dot(v_normal, normalize(light_dir)) * uniforms.lights.array[i].intensity * uniforms.lights.array[i].color;
     }
     
     f_color = texture(tex, tex_coord) * uniforms.color * brightness;

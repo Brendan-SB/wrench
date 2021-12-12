@@ -165,8 +165,9 @@ impl Engine {
             position: Vector3::zero().into(),
             color: Vector4::zero().into(),
             intensity: 0.0,
+            spec_power: 0,
             _dummy0: [0; 4],
-            _dummy1: [0; 12],
+            _dummy1: [0; 8],
         }; 1024];
         let mut recreate_swapchain = false;
         let mut previous_frame_end = Some(sync::now(self.device.clone()).boxed());
@@ -327,8 +328,9 @@ impl Engine {
                                                 .into(),
                                             color: (*light.color.lock().unwrap()).into(),
                                             intensity: *light.intensity.lock().unwrap(),
+                                            spec_power: *light.spec_power.lock().unwrap(),
                                             _dummy0: [0; 4],
-                                            _dummy1: [0; 12],
+                                            _dummy1: [0; 8],
                                         };
                                     }
 

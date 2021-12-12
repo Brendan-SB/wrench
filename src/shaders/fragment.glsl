@@ -31,13 +31,13 @@ layout(set = 0, binding = 2) uniform Data {
 } uniforms;
 
 void main() {
-    mat3 cam_offset = mat3(-cam_translation);
+    mat3 cam_offset = -mat3(cam_translation);
     vec4 brightness = vec4(uniforms.ambient);
 
     for (uint i = 0; i < uniforms.lights.len; i++) {
         vec3 light_dir = normalize((cam_offset * uniforms.lights.array[i].position) - f_pos);
-        vec3 view_dir = normalize(cam_offset * -f_pos);
-        vec3 reflect_dir = reflect(normalize(-light_dir), normal);
+        vec3 view_dir = normalize(cam_offset * f_pos);
+        vec3 reflect_dir = reflect(-normal, light_dir);
 
         float diff = max(dot(normal, light_dir), 0.0) * uniforms.diff_strength;
         float spec = pow(max(dot(view_dir, reflect_dir), 0.0), 32) * uniforms.spec_strength;

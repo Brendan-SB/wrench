@@ -52,7 +52,11 @@ pub struct Engine {
 }
 
 impl Engine {
-    pub fn new(physical_index: usize, scene: Arc<Scene>) -> Result<Self, Error> {
+    pub fn new(
+        physical_index: usize,
+        window_title: Arc<String>,
+        scene: Arc<Scene>,
+    ) -> Result<Self, Error> {
         let req_exts = vulkano_win::required_extensions();
         let instance = Instance::new(None, Version::V1_1, &req_exts, None)?;
         let physical = match PhysicalDevice::from_index(&instance, physical_index) {
@@ -60,7 +64,9 @@ impl Engine {
             None => return Err(Error::NoPhysicalDevice),
         };
         let event_loop = EventLoop::new();
-        let surface = WindowBuilder::new().build_vk_surface(&event_loop, instance.clone())?;
+        let surface = WindowBuilder::new()
+            .with_title((*window_title).clone())
+            .build_vk_surface(&event_loop, instance.clone())?;
         let queue_family = match physical
             .queue_families()
             .find(|&q| q.supports_graphics() && surface.is_supported(q).unwrap_or(false))
@@ -144,8 +150,8 @@ impl Engine {
         })
     }
 
-    pub fn first(scene: Arc<Scene>) -> Result<Self, Error> {
-        Self::new(0, scene)
+    pub fn first(window_title: Arc<String>, scene: Arc<Scene>) -> Result<Self, Error> {
+        Self::new(0, window_title, scene)
     }
 
     pub fn init(self) -> Result<(), Error> {

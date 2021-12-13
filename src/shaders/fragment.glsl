@@ -5,7 +5,6 @@
 struct Light {
     vec3 position;
     vec4 color;
-    uint spec_power;
     float intensity;
 };
 
@@ -29,6 +28,7 @@ layout(set = 0, binding = 2) uniform Data {
     float ambient;
     float diff_strength;
     float spec_strength;
+    uint spec_power;
     LightArray lights;
 } uniforms;
 
@@ -43,7 +43,7 @@ void main() {
         vec3 reflect_dir = reflect(norm, -light_dir);
 
         float diff = max(dot(norm, light_dir), 0.0) * uniforms.diff_strength;
-        float spec = pow(max(dot(view_dir, reflect_dir), 0.0), uniforms.lights.array[i].spec_power) * uniforms.spec_strength;
+        float spec = pow(max(dot(view_dir, reflect_dir), 0.0), uniforms.spec_power) * uniforms.spec_strength;
 
         brightness += (diff + spec) * uniforms.lights.array[i].intensity * uniforms.lights.array[i].color;
 

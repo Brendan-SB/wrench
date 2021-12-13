@@ -171,9 +171,8 @@ impl Engine {
             position: Vector3::zero().into(),
             color: Vector4::zero().into(),
             intensity: 0.0,
-            spec_power: 0,
             _dummy0: [0; 4],
-            _dummy1: [0; 8],
+            _dummy1: [0; 12],
         }; 1024];
         let mut recreate_swapchain = false;
         let mut previous_frame_end = Some(sync::now(self.device.clone()).boxed());
@@ -334,9 +333,8 @@ impl Engine {
                                                 .into(),
                                             color: (*light.color.lock().unwrap()).into(),
                                             intensity: *light.intensity.lock().unwrap(),
-                                            spec_power: *light.spec_power.lock().unwrap(),
                                             _dummy0: [0; 4],
-                                            _dummy1: [0; 8],
+                                            _dummy1: [0; 12],
                                         };
                                     }
 
@@ -346,12 +344,12 @@ impl Engine {
                                         ambient: *material.ambient.lock().unwrap(),
                                         diff_strength: *material.diff_strength.lock().unwrap(),
                                         spec_strength: *material.spec_strength.lock().unwrap(),
+                                        spec_power: *material.spec_power.lock().unwrap(),
                                         lights: fragment::ty::LightArray {
                                             len: lights.len() as u32,
                                             array: lights_array,
                                             _dummy0: [0; 12],
                                         },
-                                        _dummy0: [0; 4],
                                     };
 
                                     Arc::new(frag_uniform_buffer.next(uniform_data).unwrap())

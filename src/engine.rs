@@ -124,7 +124,7 @@ impl Engine {
                     load: Clear,
                     store: Store,
                     format: Format::D16_UNORM,
-                    samples: 1,
+                    samples: *sample_count,
                 },
                 color: {
                     load: Clear,
@@ -491,9 +491,10 @@ impl Engine {
             (*sample_count).clone(),
             swapchain.format(),
         )?)?;
-        let depth_buffer = ImageView::new(AttachmentImage::transient(
+        let depth_buffer = ImageView::new(AttachmentImage::transient_multisampled(
             device.clone(),
             dimensions,
+            (*sample_count).clone(),
             Format::D16_UNORM,
         )?)?;
         let framebuffers = images

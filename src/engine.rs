@@ -14,7 +14,9 @@ use vulkano::{
     descriptor_set::persistent::PersistentDescriptorSet,
     device::{physical::PhysicalDevice, Device, DeviceExtensions, Queue},
     format::Format,
-    image::{attachment::AttachmentImage, view::ImageView, ImageUsage, SwapchainImage},
+    image::{
+        attachment::AttachmentImage, view::ImageView, ImageUsage, SampleCount, SwapchainImage,
+    },
     instance::Instance,
     pipeline::{
         depth_stencil::DepthStencil, vertex::BuffersDefinition, viewport::Viewport,
@@ -39,6 +41,7 @@ pub const MAX_EVENTS: usize = 50;
 
 pub struct Engine {
     pub physical_index: usize,
+    pub sample_count: Arc<SampleCount>,
     pub event_loop: EventLoop<()>,
     pub device: Arc<Device>,
     pub queue: Arc<Queue>,
@@ -56,6 +59,7 @@ impl Engine {
         physical_index: usize,
         window_title: Arc<String>,
         scene: Arc<Scene>,
+        sample_count: Arc<SampleCount>,
     ) -> Result<Self, Error> {
         let req_exts = vulkano_win::required_extensions();
         let instance = Instance::new(None, Version::V1_1, &req_exts, None)?;
@@ -110,22 +114,29 @@ impl Engine {
         };
         let render_pass = Arc::new(vulkano::single_pass_renderpass!(device.clone(),
             attachments: {
+                intermediary: {
+                    load: Clear,
+                    store: Store,
+                    format: swapchain.format(),
+                    samples: *sample_count,
+                },
+                depth: {
+                    load: Clear,
+                    store: Store,
+                    format: Format::D16_UNORM,
+                    samples: 1,
+                },
                 color: {
                     load: Clear,
                     store: Store,
                     format: swapchain.format(),
                     samples: 1,
-                },
-                depth: {
-                    load: Clear,
-                    store: DontCare,
-                    format: Format::D16_UNORM,
-                    samples: 1,
                 }
             },
             pass: {
-                color: [color],
-                depth_stencil: {depth}
+                color: [intermediary],
+                depth_stencil: {depth},
+                resolve: [color],
             }
         )?);
         let (pipeline, framebuffers) = Self::window_size_dependent_setup(
@@ -133,10 +144,13 @@ impl Engine {
             render_pass.clone(),
             device.clone(),
             shaders.clone(),
+            swapchain.clone(),
+            sample_count.clone(),
         )?;
 
         Ok(Self {
             physical_index,
+            sample_count,
             event_loop,
             device,
             queue,
@@ -150,8 +164,12 @@ impl Engine {
         })
     }
 
-    pub fn first(window_title: Arc<String>, scene: Arc<Scene>) -> Result<Self, Error> {
-        Self::new(0, window_title, scene)
+    pub fn first(
+        window_title: Arc<String>,
+        scene: Arc<Scene>,
+        sample_count: Arc<SampleCount>,
+    ) -> Result<Self, Error> {
+        Self::new(0, window_title, scene, sample_count)
     }
 
     pub fn init(self) -> Result<(), Error> {
@@ -231,6 +249,8 @@ impl Engine {
                             self.render_pass.clone(),
                             self.device.clone(),
                             self.shaders.clone(),
+                            swapchain.clone(),
+                            self.sample_count.clone(),
                         )
                         .unwrap();
 
@@ -266,7 +286,7 @@ impl Engine {
                         .begin_render_pass(
                             framebuffers[image_num].clone(),
                             SubpassContents::Inline,
-                            vec![bg.into(), 1_f32.into()],
+                            vec![bg.into(), 1_f32.into(), [0.0, 0.0, 0.0, 0.0].into()],
                         )
                         .unwrap();
 
@@ -450,11 +470,13 @@ impl Engine {
         });
     }
 
-    fn window_size_dependent_setup(
+    fn window_size_dependent_setup<W>(
         images: &Vec<Arc<SwapchainImage<Window>>>,
         render_pass: Arc<RenderPass>,
         device: Arc<Device>,
         shaders: Arc<Shaders>,
+        swapchain: Arc<Swapchain<W>>,
+        sample_count: Arc<SampleCount>,
     ) -> Result<
         (
             Arc<GraphicsPipeline>,
@@ -463,18 +485,29 @@ impl Engine {
         Error,
     > {
         let dimensions = images[0].dimensions();
-        let depth_buffer = ImageView::new(
-            AttachmentImage::transient(device.clone(), dimensions, Format::D16_UNORM).unwrap(),
-        )?;
+        let intermediary = ImageView::new(AttachmentImage::transient_multisampled(
+            device.clone(),
+            dimensions,
+            (*sample_count).clone(),
+            swapchain.format(),
+        )?)?;
+        let depth_buffer = ImageView::new(AttachmentImage::transient(
+            device.clone(),
+            dimensions,
+            Format::D16_UNORM,
+        )?)?;
         let framebuffers = images
             .iter()
             .map(|image| {
                 let view = ImageView::new(image.clone()).unwrap();
+
                 Arc::new(
                     Framebuffer::start(render_pass.clone())
-                        .add(view)
+                        .add(intermediary.clone())
                         .unwrap()
                         .add(depth_buffer.clone())
+                        .unwrap()
+                        .add(view)
                         .unwrap()
                         .build()
                         .unwrap(),

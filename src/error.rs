@@ -1,9 +1,13 @@
 use obj::ObjError;
 use std::{error, io};
 use vulkano::{
-    device::DeviceCreationError, image::view::ImageViewCreationError,
-    instance::InstanceCreationError, memory::DeviceMemoryAllocError,
-    pipeline::GraphicsPipelineCreationError, render_pass::RenderPassCreationError, OomError,
+    device::DeviceCreationError,
+    image::{sys::ImageCreationError, view::ImageViewCreationError},
+    instance::InstanceCreationError,
+    memory::DeviceMemoryAllocError,
+    pipeline::GraphicsPipelineCreationError,
+    render_pass::RenderPassCreationError,
+    OomError,
 };
 use vulkano_win::CreationError;
 
@@ -24,6 +28,7 @@ pub enum Error {
     GraphicsPipelineCreationError(GraphicsPipelineCreationError),
     DeviceMemoryAllocError(DeviceMemoryAllocError),
     ObjError(ObjError),
+    ImageCreationError(ImageCreationError),
     ImageViewCreationError(ImageViewCreationError),
     Error(Box<dyn error::Error>),
 }
@@ -79,6 +84,12 @@ impl From<DeviceMemoryAllocError> for Error {
 impl From<ObjError> for Error {
     fn from(e: ObjError) -> Self {
         Self::ObjError(e)
+    }
+}
+
+impl From<ImageCreationError> for Error {
+    fn from(e: ImageCreationError) -> Self {
+        Self::ImageCreationError(e)
     }
 }
 

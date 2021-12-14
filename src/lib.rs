@@ -27,3 +27,4 @@ pub mod ecs {
 
 pub use engine::Engine;
 pub use scene::Scene;
+pub use vulkano::image::SampleCount;

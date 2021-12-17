@@ -21,7 +21,7 @@ pub fn surface_normal(vertices: &Vec<Vertex>) -> Normal {
     let mut normal = Vector3::zero();
 
     for (i, current) in vertices.iter().enumerate() {
-        let next = vertices[(i + 1) % vertices.len()];
+        let next = vertices[(i + 1) % (vertices.len() - 1)];
 
         normal += Vector3::new(
             (current.position[1] - next.position[1]) * (current.position[2] + next.position[2]),
@@ -59,27 +59,13 @@ impl Mesh {
         let mut normals = Vec::new();
 
         for vertex in obj.vertices as Vec<TexturedVertex> {
-            let mut position = [0.0; 3];
-
-            for i in 0..3 {
-                position[i] = vertex.position[i];
-            }
-
-            let mut uv = [0.0; 2];
-
-            for i in 0..2 {
-                uv[i] = vertex.texture[i];
-            }
-
-            vertices.push(Vertex { position, uv });
-
-            let mut normal = [0.0; 3];
-
-            for i in 0..3 {
-                normal[i] = vertex.normal[i];
-            }
-
-            normals.push(Normal { normal });
+            vertices.push(Vertex {
+                position: vertex.position,
+                uv: [vertex.texture[0], vertex.texture[1]],
+            });
+            normals.push(Normal {
+                normal: vertex.normal,
+            });
         }
 
         Ok(Self::new(vertices, obj.indices, normals))

@@ -33,6 +33,12 @@ layout(set = 0, binding = 2) uniform Data {
 } uniforms;
 
 void main() {
+    vec4 tex_color = texture(tex, tex_coord);
+
+    if (tex_color.a == 0.0) {
+      discard;
+    }
+
     vec3 norm = normalize(global_translation * normal);
     mat3 cam_offset = -mat3(cam_translation);
     vec4 brightness = vec4(uniforms.ambient);
@@ -49,5 +55,5 @@ void main() {
 
     }
     
-    f_color = texture(tex, tex_coord) * uniforms.color * brightness;
+    f_color = tex_color * uniforms.color * brightness;
 }

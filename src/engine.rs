@@ -5,7 +5,7 @@ use crate::{
     error::Error,
     scene::Scene,
     shaders::{fragment, vertex, Shaders},
-    Matrix4, Rad, Vector3, Vector4, Zero,
+    Matrix4, Rad, Vector3, Vector4, Zero
 };
 use std::sync::{Arc, Mutex};
 use vulkano::{
@@ -187,10 +187,13 @@ impl Engine {
             CpuBufferPool::<fragment::ty::Data>::new(self.device.clone(), BufferUsage::all());
         let mut lights_array = [fragment::ty::Light {
             position: Vector3::zero().into(),
+            rotation: Matrix4::zero().into(),
             color: Vector4::zero().into(),
+            directional: 0,
+            cutoff: 0.0,
             intensity: 0.0,
+            attenuation: 0.0,
             _dummy0: [0; 4],
-            _dummy1: [0; 12],
         }; 1024];
         let mut recreate_swapchain = false;
         let mut previous_frame_end = Some(sync::now(self.device.clone()).boxed());
@@ -345,15 +348,25 @@ impl Engine {
                                 };
                                 let frag_uniform_buffer_subbuffer = {
                                     let lights = scene.lights.lock().unwrap();
-
                                     for (i, light) in lights.iter().enumerate() {
+                                        let rotation = {
+                                            let rotation = light.transform.rotation.lock().unwrap();
+
+                                            Matrix4::from_angle_x(Rad(rotation.x))
+                                                * Matrix4::from_angle_y(Rad(rotation.y))
+                                                * Matrix4::from_angle_z(Rad(rotation.z))
+                                        };
+
                                         lights_array[i] = fragment::ty::Light {
                                             position: (*light.transform.position.lock().unwrap())
                                                 .into(),
+                                            rotation: rotation.into(),
                                             color: (*light.color.lock().unwrap()).into(),
+                                            directional: *light.directional.lock().unwrap() as u32,
                                             intensity: *light.intensity.lock().unwrap(),
+                                            cutoff: *light.cutoff.lock().unwrap(),
+                                            attenuation: *light.attenuation.lock().unwrap(),
                                             _dummy0: [0; 4],
-                                            _dummy1: [0; 12],
                                         };
                                     }
 

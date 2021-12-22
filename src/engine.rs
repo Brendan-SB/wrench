@@ -272,7 +272,6 @@ impl Engine {
 
                             Err(e) => panic!("Failed to acquire next image: {:?}", e),
                         };
-
                     let mut builder = AutoCommandBufferBuilder::primary(
                         self.device.clone(),
                         self.queue.family(),
@@ -286,7 +285,7 @@ impl Engine {
                         .begin_render_pass(
                             framebuffers[image_num].clone(),
                             SubpassContents::Inline,
-                            vec![bg.into(), 1_f32.into(), [0.0, 0.0, 0.0, 0.0].into()],
+                            vec![bg.into(), 1.0_f32.into(), [0.0_f32; 4].into()],
                         )
                         .unwrap();
 

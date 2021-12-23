@@ -56,18 +56,16 @@ void main() {
         vec3 light_dir = normalize(cam_offset * light.position - f_pos);
         vec3 view_dir = normalize(f_pos);
 
-        float distance = length(cam_offset * light.position - f_pos);
-        float attenuation = 1.0 / (light.attenuation * pow(distance, 2));
+        float dist = length(cam_offset * light.position - f_pos);
+        float attenuation = 1.0 / (light.attenuation * pow(dist, 2));
         float edge_softness = 1.0;
 
         if (light.directional) {
-          float theta = dot(-light_dir, -normalize(vec3(1.0) * mat3(light.rotation)));
+          float theta = dot(light_dir, normalize(-(vec3(1.0) * mat3(light.rotation))));
 
           if (theta > light.outer_cutoff) {
-            mat3 light_rotation_global = inverse(mat3(light.rotation));
-
-            light_dir *= light_rotation_global;
-            view_dir *= light_rotation_global;
+            light_dir *= -inverse(mat3(light.rotation));
+            view_dir *= -inverse(mat3(light.rotation));
 
             float epsilon = light.cutoff - light.outer_cutoff;
             

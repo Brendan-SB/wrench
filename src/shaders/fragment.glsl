@@ -9,6 +9,7 @@ struct Light {
     bool directional;
     float intensity;
     float cutoff;
+    float outer_cutoff;
     float attenuation;
 };
 
@@ -52,20 +53,25 @@ void main() {
     for (uint i = 0; i < uniforms.lights.len; i++) {
         Light light = uniforms.lights.array[i];
 
-        vec3 light_dir = normalize(cam_offset * uniforms.lights.array[i].position - f_pos);
-        vec3 view_dir = normalize(cam_translation * f_pos);
+        vec3 light_dir = normalize(cam_offset * light.position - f_pos);
+        vec3 view_dir = normalize(f_pos);
 
         float distance = length(cam_offset * light.position - f_pos);
         float attenuation = 1.0 / (light.attenuation * pow(distance, 2));
+        float edge_softness = 1.0;
 
         if (light.directional) {
           float theta = dot(-light_dir, -normalize(vec3(1.0) * mat3(light.rotation)));
 
-          if (theta > light.cutoff) {
+          if (theta > light.outer_cutoff) {
             mat3 light_rotation_global = inverse(mat3(light.rotation));
 
             light_dir *= light_rotation_global;
             view_dir *= light_rotation_global;
+
+            float epsilon = light.cutoff - light.outer_cutoff;
+            
+            edge_softness = clamp((theta - light.outer_cutoff) / epsilon, 0.0, 1.0);
           } else {
             continue;
           }
@@ -76,7 +82,7 @@ void main() {
         float diff = max(dot(norm, light_dir), 0.0) * uniforms.diff_strength;
         float spec = pow(max(dot(view_dir, reflect_dir), 0.0), uniforms.spec_power) * uniforms.spec_strength;
 
-        brightness += (diff + spec) * uniforms.lights.array[i].intensity * uniforms.lights.array[i].color * attenuation;
+        brightness += (diff + spec) * light.intensity * light.color * attenuation * edge_softness;
     }
     
     f_color = tex_color * uniforms.color * brightness;

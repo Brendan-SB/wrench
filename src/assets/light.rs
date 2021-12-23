@@ -7,6 +7,7 @@ pub struct Light {
     pub directional: Mutex<bool>,
     pub intensity: Mutex<f32>,
     pub cutoff: Mutex<f32>,
+    pub outer_cutoff: Mutex<f32>,
     pub attenuation: Mutex<f32>,
 }
 
@@ -17,6 +18,7 @@ impl Light {
         directional: bool,
         intensity: f32,
         cutoff: f32,
+        outer_cutoff: f32,
         attenuation: f32,
     ) -> Arc<Self> {
         Arc::new(Self {
@@ -25,6 +27,7 @@ impl Light {
             directional: Mutex::new(directional),
             intensity: Mutex::new(intensity),
             cutoff: Mutex::new(cutoff),
+            outer_cutoff: Mutex::new(outer_cutoff),
             attenuation: Mutex::new(attenuation),
         })
     }

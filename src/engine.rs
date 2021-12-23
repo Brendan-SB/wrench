@@ -191,9 +191,11 @@ impl Engine {
             color: Vector4::zero().into(),
             directional: 0,
             cutoff: 0.0,
+            outer_cutoff: 0.0,
             intensity: 0.0,
             attenuation: 0.0,
             _dummy0: [0; 4],
+            _dummy1: [0; 12],
         }; 1024];
         let mut recreate_swapchain = false;
         let mut previous_frame_end = Some(sync::now(self.device.clone()).boxed());
@@ -366,8 +368,10 @@ impl Engine {
                                             directional: *light.directional.lock().unwrap() as u32,
                                             intensity: *light.intensity.lock().unwrap(),
                                             cutoff: *light.cutoff.lock().unwrap(),
+                                            outer_cutoff: *light.outer_cutoff.lock().unwrap(),
                                             attenuation: *light.attenuation.lock().unwrap(),
                                             _dummy0: [0; 4],
+                                            _dummy1: [0; 12],
                                         };
                                     }
 

@@ -348,6 +348,7 @@ impl Engine {
                                 };
                                 let frag_uniform_buffer_subbuffer = {
                                     let lights = scene.lights.lock().unwrap();
+
                                     for (i, light) in lights.iter().enumerate() {
                                         let rotation = {
                                             let rotation = light.transform.rotation.lock().unwrap();

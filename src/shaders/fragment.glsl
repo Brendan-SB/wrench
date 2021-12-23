@@ -51,11 +51,12 @@ void main() {
 
     for (uint i = 0; i < uniforms.lights.len; i++) {
         Light light = uniforms.lights.array[i];
-        
-        float attenuation = 1.0;
 
         vec3 light_dir = normalize(cam_offset * uniforms.lights.array[i].position - f_pos);
         vec3 view_dir = normalize(cam_translation * f_pos);
+
+        float distance = length(cam_offset * light.position - f_pos);
+        float attenuation = 1.0 / (light.attenuation * pow(distance, 2));
 
         if (light.directional) {
           float theta = dot(-light_dir, -normalize(vec3(1.0) * mat3(light.rotation)));
@@ -65,10 +66,6 @@ void main() {
 
             light_dir *= light_rotation_global;
             view_dir *= light_rotation_global;
-
-            float distance = length(light.position - f_pos);
-
-            attenuation = 1.0 / (light.attenuation * pow(distance, 2));
           } else {
             continue;
           }

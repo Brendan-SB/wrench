@@ -5,7 +5,7 @@ use crate::{
     error::Error,
     scene::Scene,
     shaders::{fragment, vertex, Shaders},
-    Matrix4, Rad, Vector3, Vector4, Zero
+    Matrix4, Rad, Vector3, Vector4, Zero,
 };
 use std::sync::{Arc, Mutex};
 use vulkano::{

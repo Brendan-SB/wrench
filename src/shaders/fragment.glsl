@@ -53,20 +53,18 @@ void main() {
     for (uint i = 0; i < uniforms.lights.len; i++) {
         Light light = uniforms.lights.array[i];
 
-        vec3 light_dir = normalize(cam_offset * light.position - f_pos);
+        vec3 f_pos_dif = cam_offset * mat3(light.rotation) * light.position - f_pos; 
+        vec3 light_dir = normalize(f_pos_dif);
         vec3 view_dir = normalize(f_pos);
 
-        float dist = length(cam_offset * light.position - f_pos);
+        float dist = length(f_pos_dif);
         float attenuation = 1.0 / (light.attenuation * pow(dist, 2));
         float edge_softness = 1.0;
 
         if (light.directional) {
-          float theta = dot(light_dir, normalize(-(vec3(1.0) * mat3(light.rotation))));
+          float theta = dot(light_dir, -normalize(vec3(1.0) * mat3(light.rotation)));
 
           if (theta > light.outer_cutoff) {
-            light_dir *= -inverse(mat3(light.rotation));
-            view_dir *= -inverse(mat3(light.rotation));
-
             float epsilon = light.cutoff - light.outer_cutoff;
             
             edge_softness = clamp((theta - light.outer_cutoff) / epsilon, 0.0, 1.0);
@@ -75,7 +73,7 @@ void main() {
           }
         }
 
-        vec3 reflect_dir = reflect(norm, -light_dir);
+        vec3 reflect_dir = reflect(norm, light_dir);
 
         float diff = max(dot(norm, light_dir), 0.0) * uniforms.diff_strength;
         float spec = pow(max(dot(view_dir, reflect_dir), 0.0), uniforms.spec_power) * uniforms.spec_strength;

@@ -191,7 +191,6 @@ impl Engine {
             CpuBufferPool::<fragment::ty::Data>::new(self.device.clone(), BufferUsage::all());
         let mut lights_array = [fragment::ty::Light {
             position: Vector3::zero().into(),
-            direction: Vector3::zero().into(),
             rotation: Matrix4::zero().into(),
             color: Vector4::zero().into(),
             directional: 0,
@@ -200,8 +199,7 @@ impl Engine {
             intensity: 0.0,
             attenuation: 0.0,
             _dummy0: [0; 4],
-            _dummy1: [0; 4],
-            _dummy2: [0; 12],
+            _dummy1: [0; 12],
         }; 1024];
         let mut recreate_swapchain = false;
         let mut previous_frame_end = Some(sync::now(self.device.clone()).boxed());
@@ -365,7 +363,6 @@ impl Engine {
                                         lights_array[i] = fragment::ty::Light {
                                             position: (*light.transform.position.lock().unwrap())
                                                 .into(),
-                                            direction: (*light.direction.lock().unwrap()).into(),
                                             rotation: rotation.into(),
                                             color: (*light.color.lock().unwrap()).into(),
                                             directional: *light.directional.lock().unwrap() as u32,
@@ -374,8 +371,7 @@ impl Engine {
                                             outer_cutoff: *light.outer_cutoff.lock().unwrap(),
                                             attenuation: *light.attenuation.lock().unwrap(),
                                             _dummy0: [0; 4],
-                                            _dummy1: [0; 4],
-                                            _dummy2: [0; 12],
+                                            _dummy1: [0; 12],
                                         };
                                     }
 

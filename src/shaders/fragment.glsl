@@ -4,7 +4,6 @@
 
 struct Light {
     vec3 position;
-    vec3 direction;
     mat4 rotation;
     vec4 color;
     bool directional;
@@ -63,7 +62,7 @@ void main() {
         float edge_softness = 1.0;
 
         if (light.directional) {
-          float theta = dot(light_dir, -normalize(vec3(mat4(cam_offset) * inverse(light.rotation) * vec4(light.direction, 1.0))));
+          float theta = dot(light_dir, -normalize(vec3(mat4(cam_offset) * inverse(light.rotation) * vec4(0.0, 0.0, 1.0, 1.0))));
 
           if (theta > light.outer_cutoff) {
             float epsilon = light.cutoff - light.outer_cutoff;

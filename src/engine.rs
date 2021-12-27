@@ -57,7 +57,7 @@ pub struct Engine {
 impl Engine {
     pub fn new(
         physical_index: usize,
-        window_title: String,
+        window_builder: WindowBuilder,
         scene: Arc<Scene>,
         sample_count: Arc<SampleCount>,
     ) -> Result<Self, Error> {
@@ -68,9 +68,7 @@ impl Engine {
             None => return Err(Error::NoPhysicalDevice),
         };
         let event_loop = EventLoop::new();
-        let surface = WindowBuilder::new()
-            .with_title(window_title)
-            .build_vk_surface(&event_loop, instance.clone())?;
+        let surface = window_builder.build_vk_surface(&event_loop, instance.clone())?;
         let queue_family = match physical
             .queue_families()
             .find(|&q| q.supports_graphics() && surface.is_supported(q).unwrap_or(false))
@@ -165,11 +163,11 @@ impl Engine {
     }
 
     pub fn first(
-        window_title: String,
+        window_builder: WindowBuilder,
         scene: Arc<Scene>,
         sample_count: Arc<SampleCount>,
     ) -> Result<Self, Error> {
-        Self::new(0, window_title, scene, sample_count)
+        Self::new(0, window_builder, scene, sample_count)
     }
 
     pub fn init(self) -> Result<(), Error> {

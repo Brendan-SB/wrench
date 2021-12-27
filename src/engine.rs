@@ -30,11 +30,10 @@ use vulkano::{
     sync::{self, FlushError, GpuFuture},
     Version,
 };
-use vulkano_win::VkSurfaceBuild;
 use winit::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::{Window, WindowBuilder},
+    window::Window,
 };
 
 pub const MAX_EVENTS: usize = 50;
@@ -55,20 +54,25 @@ pub struct Engine {
 }
 
 impl Engine {
+    pub fn instance() -> Result<Arc<Instance>, Error> {
+        let req_exts = vulkano_win::required_extensions();
+        let instance = Instance::new(None, Version::V1_1, &req_exts, None)?;
+
+        Ok(instance)
+    }
+
     pub fn new(
         physical_index: usize,
-        window_builder: WindowBuilder,
+        surface: Arc<Surface<Window>>,
+        instance: Arc<Instance>,
+        event_loop: EventLoop<()>,
         scene: Arc<Scene>,
         sample_count: Arc<SampleCount>,
     ) -> Result<Self, Error> {
-        let req_exts = vulkano_win::required_extensions();
-        let instance = Instance::new(None, Version::V1_1, &req_exts, None)?;
         let physical = match PhysicalDevice::from_index(&instance, physical_index) {
             Some(physical) => physical,
             None => return Err(Error::NoPhysicalDevice),
         };
-        let event_loop = EventLoop::new();
-        let surface = window_builder.build_vk_surface(&event_loop, instance.clone())?;
         let queue_family = match physical
             .queue_families()
             .find(|&q| q.supports_graphics() && surface.is_supported(q).unwrap_or(false))
@@ -163,11 +167,13 @@ impl Engine {
     }
 
     pub fn first(
-        window_builder: WindowBuilder,
+        surface: Arc<Surface<Window>>,
+        instance: Arc<Instance>,
+        event_loop: EventLoop<()>,
         scene: Arc<Scene>,
         sample_count: Arc<SampleCount>,
     ) -> Result<Self, Error> {
-        Self::new(0, window_builder, scene, sample_count)
+        Self::new(0, surface, instance, event_loop, scene, sample_count)
     }
 
     pub fn init(self) -> Result<(), Error> {
@@ -185,6 +191,7 @@ impl Engine {
             CpuBufferPool::<fragment::ty::Data>::new(self.device.clone(), BufferUsage::all());
         let mut lights_array = [fragment::ty::Light {
             position: Vector3::zero().into(),
+            direction: Vector3::zero().into(),
             rotation: Matrix4::zero().into(),
             color: Vector4::zero().into(),
             directional: 0,
@@ -193,7 +200,8 @@ impl Engine {
             intensity: 0.0,
             attenuation: 0.0,
             _dummy0: [0; 4],
-            _dummy1: [0; 12],
+            _dummy1: [0; 4],
+            _dummy2: [0; 12],
         }; 1024];
         let mut recreate_swapchain = false;
         let mut previous_frame_end = Some(sync::now(self.device.clone()).boxed());
@@ -327,11 +335,7 @@ impl Engine {
                                     let transform = rotation * translation;
                                     let cam_transform = cam_rotation * cam_translation;
                                     let uniform_data = vertex::ty::Data {
-                                        rotation: rotation.into(),
-                                        cam_rotation: cam_rotation.into(),
                                         proj: proj.into(),
-                                        translation: translation.into(),
-                                        cam_translation: cam_translation.into(),
                                         scale: {
                                             let scale = model.transform.scale.lock().unwrap();
 
@@ -361,6 +365,7 @@ impl Engine {
                                         lights_array[i] = fragment::ty::Light {
                                             position: (*light.transform.position.lock().unwrap())
                                                 .into(),
+                                            direction: (*light.direction.lock().unwrap()).into(),
                                             rotation: rotation.into(),
                                             color: (*light.color.lock().unwrap()).into(),
                                             directional: *light.directional.lock().unwrap() as u32,
@@ -369,7 +374,8 @@ impl Engine {
                                             outer_cutoff: *light.outer_cutoff.lock().unwrap(),
                                             attenuation: *light.attenuation.lock().unwrap(),
                                             _dummy0: [0; 4],
-                                            _dummy1: [0; 12],
+                                            _dummy1: [0; 4],
+                                            _dummy2: [0; 12],
                                         };
                                     }
 

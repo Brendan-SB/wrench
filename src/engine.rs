@@ -57,7 +57,7 @@ pub struct Engine {
 impl Engine {
     pub fn new(
         physical_index: usize,
-        window_title: Arc<String>,
+        window_title: String,
         scene: Arc<Scene>,
         sample_count: Arc<SampleCount>,
     ) -> Result<Self, Error> {
@@ -69,7 +69,7 @@ impl Engine {
         };
         let event_loop = EventLoop::new();
         let surface = WindowBuilder::new()
-            .with_title((*window_title).clone())
+            .with_title(window_title)
             .build_vk_surface(&event_loop, instance.clone())?;
         let queue_family = match physical
             .queue_families()
@@ -165,7 +165,7 @@ impl Engine {
     }
 
     pub fn first(
-        window_title: Arc<String>,
+        window_title: String,
         scene: Arc<Scene>,
         sample_count: Arc<SampleCount>,
     ) -> Result<Self, Error> {

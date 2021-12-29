@@ -85,7 +85,7 @@ impl Entity {
 
     pub fn get_first<T>(&self, tid: Arc<String>) -> Option<Arc<T>>
     where
-        T: Component + Send + Sync + 'static,
+        T: Component + Send + Sync,
     {
         match self.get_type::<T>(tid) {
             Some(components) => match components.first() {
@@ -106,7 +106,7 @@ impl Entity {
         let mut components = self.components.lock().unwrap();
 
         if let Some(target) = components.get(&tid) {
-            if {
+            let is_empty = {
                 let mut target = target.lock().unwrap();
 
                 target
@@ -120,7 +120,9 @@ impl Entity {
                     });
 
                 target.is_empty()
-            } {
+            };
+
+            if is_empty {
                 components.remove(&tid);
             }
         }

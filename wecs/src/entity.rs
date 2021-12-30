@@ -20,7 +20,7 @@ impl Entity {
     }
 
     fn setup_component(component: Arc<dyn Component>) {
-        let entity = match component.entity().lock().unwrap().as_ref() {
+        let entity = match &*component.entity().lock().unwrap() {
             Some(entity) => entity.clone(),
             None => return,
         };

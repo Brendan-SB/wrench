@@ -22,7 +22,7 @@ layout(location = 0) in vec3 normal;
 layout(location = 1) in vec2 tex_coord;
 layout(location = 2) in vec3 f_pos;
 layout(location = 3) in mat3 global_translation;
-layout(location = 6) in mat4 cam_translation;
+layout(location = 6) in mat3 cam_translation;
 
 layout(location = 0) out vec4 f_color;
 
@@ -46,14 +46,14 @@ void main() {
 
     vec3 norm = normalize(global_translation * normal);
 
-    mat3 cam_offset = -mat3(cam_translation);
+    mat4 cam_offset = -mat4(cam_translation);
 
     vec4 brightness = vec4(uniforms.ambient);
 
     for (uint i = 0; i < uniforms.lights.len; i++) {
         Light light = uniforms.lights.array[i];
 
-        vec3 f_pos_dif = vec3(mat4(cam_offset) * vec4(light.position, 1.0)) - f_pos; 
+        vec3 f_pos_dif = vec3(cam_offset * vec4(light.position, 1.0)) - f_pos; 
         vec3 light_dir = normalize(f_pos_dif);
         vec3 view_dir = normalize(f_pos);
 
@@ -62,7 +62,7 @@ void main() {
         float edge_softness = 1.0;
 
         if (light.directional) {
-          float theta = dot(light_dir, -normalize(vec3(mat4(cam_offset) * inverse(light.rotation) * vec4(0.0, 0.0, 1.0, 1.0))));
+          float theta = dot(light_dir, -normalize(vec3(cam_offset * inverse(light.rotation) * vec4(0.0, 0.0, 1.0, 1.0))));
 
           if (theta > light.outer_cutoff) {
             float epsilon = light.cutoff - light.outer_cutoff;

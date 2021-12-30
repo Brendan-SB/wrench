@@ -22,7 +22,7 @@ layout(location = 0) in vec3 normal;
 layout(location = 1) in vec2 tex_coord;
 layout(location = 2) in vec3 f_pos;
 layout(location = 3) in mat3 global_translation;
-layout(location = 6) in mat4 cam_transform;
+layout(location = 6) in mat4 cam_translation;
 
 layout(location = 0) out vec4 f_color;
 
@@ -46,7 +46,7 @@ void main() {
 
     vec3 norm = normalize(global_translation * normal);
 
-    mat3 cam_offset = -mat3(cam_transform);
+    mat3 cam_offset = -mat3(cam_translation);
 
     vec4 brightness = vec4(uniforms.ambient);
 

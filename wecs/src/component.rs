@@ -7,8 +7,6 @@ use std::{
 pub trait Component: Send + Sync + 'static {
     fn entity(&self) -> Arc<Mutex<Option<Arc<Entity>>>>;
 
-    fn set_entity(&self, entity: Option<Arc<Entity>>);
-
     fn id(&self) -> Arc<String>;
 
     fn tid(&self) -> Arc<String>;

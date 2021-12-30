@@ -330,8 +330,6 @@ impl Engine {
                                     let cam_translation = Matrix4::from_translation(
                                         *camera.transform.position.lock().unwrap(),
                                     );
-                                    let transform = rotation * translation;
-                                    let cam_transform = cam_rotation * cam_translation;
                                     let uniform_data = vertex::ty::Data {
                                         proj: proj.into(),
                                         scale: {
@@ -342,8 +340,10 @@ impl Engine {
                                             )
                                         }
                                         .into(),
-                                        transform: transform.into(),
-                                        cam_transform: cam_transform.into(),
+                                        translation: translation.into(),
+                                        rotation: rotation.into(),
+                                        cam_translation: cam_translation.into(),
+                                        cam_rotation: cam_rotation.into(),
                                     };
 
                                     Arc::new(uniform_buffer.next(uniform_data).unwrap())

@@ -19,10 +19,21 @@ impl Entity {
         })
     }
 
-    pub fn add(self: &Arc<Self>, component: Arc<dyn Component>) {
-        let mut components = self.components.lock().unwrap();
+    fn setup_component(component: Arc<dyn Component>) {
+        let entity = match component.entity().lock().unwrap().as_ref() {
+            Some(entity) => entity.clone(),
+            None => return,
+        };
 
-        component.set_entity(Some(self.clone()));
+        entity.remove(component);
+    }
+
+    pub fn add(self: &Arc<Self>, component: Arc<dyn Component>) {
+        Self::setup_component(component.clone());
+
+        *component.entity().lock().unwrap() = Some(self.clone());
+
+        let mut components = self.components.lock().unwrap();
 
         match components.get(&component.tid()) {
             Some(components) => {
@@ -116,7 +127,7 @@ impl Entity {
                     .filter(|(_, c)| *c.id() == *id)
                     .for_each(|(i, v)| {
                         target.remove(i);
-                        v.set_entity(None);
+                        *v.entity().lock().unwrap() = None;
                     });
 
                 target.is_empty()

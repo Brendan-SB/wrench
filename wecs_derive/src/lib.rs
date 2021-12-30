@@ -13,10 +13,6 @@ pub fn component(input: TokenStream) -> TokenStream {
                 self.entity.clone()
             }
 
-            fn set_entity(&self, entity: Option<Arc<Entity>>) {
-                *self.entity.lock().unwrap() = entity;
-            }
-
             fn id(&self) -> Arc<String> {
                 self.id.clone()
             }

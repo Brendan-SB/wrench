@@ -1,3 +1,4 @@
+use super::Engine;
 use crate::{
     assets::mesh::{Normal, Vertex},
     components::{EventHandler, Model},
@@ -36,9 +37,7 @@ use winit::{
     window::Window,
 };
 
-pub const MAX_EVENTS: usize = 50;
-
-pub struct Engine {
+pub struct DefaultEngine {
     pub physical_index: usize,
     pub sample_count: Arc<SampleCount>,
     pub event_loop: EventLoop<()>,
@@ -53,7 +52,7 @@ pub struct Engine {
     pub scene: Mutex<Arc<Scene>>,
 }
 
-impl Engine {
+impl DefaultEngine {
     pub fn instance() -> Result<Arc<Instance>, Error> {
         let req_exts = vulkano_win::required_extensions();
         let instance = Instance::new(None, Version::V1_1, &req_exts, None)?;
@@ -176,7 +175,81 @@ impl Engine {
         Self::new(0, surface, instance, event_loop, scene, sample_count)
     }
 
-    pub fn init(self) -> Result<(), Error> {
+    fn window_size_dependent_setup<W>(
+        images: &Vec<Arc<SwapchainImage<Window>>>,
+        render_pass: Arc<RenderPass>,
+        device: Arc<Device>,
+        shaders: Arc<Shaders>,
+        swapchain: Arc<Swapchain<W>>,
+        sample_count: Arc<SampleCount>,
+    ) -> Result<
+        (
+            Arc<GraphicsPipeline>,
+            Vec<Arc<dyn FramebufferAbstract + Send + Sync>>,
+        ),
+        Error,
+    > {
+        let dimensions = images[0].dimensions();
+        let intermediary = ImageView::new(AttachmentImage::transient_multisampled(
+            device.clone(),
+            dimensions,
+            (*sample_count).clone(),
+            swapchain.format(),
+        )?)?;
+        let depth_buffer = ImageView::new(AttachmentImage::transient_multisampled(
+            device.clone(),
+            dimensions,
+            (*sample_count).clone(),
+            Format::D16_UNORM,
+        )?)?;
+        let framebuffers = images
+            .iter()
+            .map(|image| {
+                let view = ImageView::new(image.clone()).unwrap();
+
+                Arc::new(
+                    Framebuffer::start(render_pass.clone())
+                        .add(intermediary.clone())
+                        .unwrap()
+                        .add(depth_buffer.clone())
+                        .unwrap()
+                        .add(view)
+                        .unwrap()
+                        .build()
+                        .unwrap(),
+                ) as Arc<dyn FramebufferAbstract + Send + Sync>
+            })
+            .collect::<Vec<Arc<dyn FramebufferAbstract + Send + Sync>>>();
+        let pipeline = Arc::new(
+            GraphicsPipeline::start()
+                .vertex_input(
+                    BuffersDefinition::new()
+                        .vertex::<Vertex>()
+                        .vertex::<Normal>(),
+                )
+                .vertex_shader(shaders.vertex.main_entry_point(), ())
+                .triangle_list()
+                .viewports_dynamic_scissors_irrelevant(1)
+                .fragment_shader(shaders.fragment.main_entry_point(), ())
+                .render_pass(match Subpass::from(render_pass.clone(), 0) {
+                    Some(subpass) => subpass,
+                    None => return Err(Error::NoSubpass),
+                })
+                .viewports(vec![Viewport {
+                    origin: [0.0, 0.0],
+                    dimensions: [dimensions[0] as f32, dimensions[1] as f32],
+                    depth_range: 0.0..1.0,
+                }])
+                .depth_stencil(DepthStencil::simple_depth_test())
+                .build(device.clone())?,
+        );
+
+        Ok((pipeline, framebuffers))
+    }
+}
+
+impl Engine for DefaultEngine {
+    fn init(self) -> Result<(), Error> {
         for entity in self.scene.lock().unwrap().world.entities() {
             for (_, v) in entity.components() {
                 for component in v {
@@ -485,77 +558,5 @@ impl Engine {
                 _ => {}
             }
         });
-    }
-
-    fn window_size_dependent_setup<W>(
-        images: &Vec<Arc<SwapchainImage<Window>>>,
-        render_pass: Arc<RenderPass>,
-        device: Arc<Device>,
-        shaders: Arc<Shaders>,
-        swapchain: Arc<Swapchain<W>>,
-        sample_count: Arc<SampleCount>,
-    ) -> Result<
-        (
-            Arc<GraphicsPipeline>,
-            Vec<Arc<dyn FramebufferAbstract + Send + Sync>>,
-        ),
-        Error,
-    > {
-        let dimensions = images[0].dimensions();
-        let intermediary = ImageView::new(AttachmentImage::transient_multisampled(
-            device.clone(),
-            dimensions,
-            (*sample_count).clone(),
-            swapchain.format(),
-        )?)?;
-        let depth_buffer = ImageView::new(AttachmentImage::transient_multisampled(
-            device.clone(),
-            dimensions,
-            (*sample_count).clone(),
-            Format::D16_UNORM,
-        )?)?;
-        let framebuffers = images
-            .iter()
-            .map(|image| {
-                let view = ImageView::new(image.clone()).unwrap();
-
-                Arc::new(
-                    Framebuffer::start(render_pass.clone())
-                        .add(intermediary.clone())
-                        .unwrap()
-                        .add(depth_buffer.clone())
-                        .unwrap()
-                        .add(view)
-                        .unwrap()
-                        .build()
-                        .unwrap(),
-                ) as Arc<dyn FramebufferAbstract + Send + Sync>
-            })
-            .collect::<Vec<Arc<dyn FramebufferAbstract + Send + Sync>>>();
-        let pipeline = Arc::new(
-            GraphicsPipeline::start()
-                .vertex_input(
-                    BuffersDefinition::new()
-                        .vertex::<Vertex>()
-                        .vertex::<Normal>(),
-                )
-                .vertex_shader(shaders.vertex.main_entry_point(), ())
-                .triangle_list()
-                .viewports_dynamic_scissors_irrelevant(1)
-                .fragment_shader(shaders.fragment.main_entry_point(), ())
-                .render_pass(match Subpass::from(render_pass.clone(), 0) {
-                    Some(subpass) => subpass,
-                    None => return Err(Error::NoSubpass),
-                })
-                .viewports(vec![Viewport {
-                    origin: [0.0, 0.0],
-                    dimensions: [dimensions[0] as f32, dimensions[1] as f32],
-                    depth_range: 0.0..1.0,
-                }])
-                .depth_stencil(DepthStencil::simple_depth_test())
-                .build(device.clone())?,
-        );
-
-        Ok((pipeline, framebuffers))
     }
 }

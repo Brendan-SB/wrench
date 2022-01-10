@@ -1,6 +1,6 @@
 use crate::{error::Error, InnerSpace, Vector3, Zero};
 use obj::TexturedVertex;
-use std::{io::BufRead, sync::Arc};
+use std::{io::BufRead, ops::Deref, sync::Arc};
 
 #[derive(Default, Copy, Clone)]
 pub struct Vertex {
@@ -15,25 +15,30 @@ pub struct Normal {
     pub normal: [f32; 3],
 }
 
-vulkano::impl_vertex!(Normal, normal);
+impl<V> From<V> for Normal
+where
+    V: Deref<Target = Vec<Vertex>>,
+{
+    fn from(vertices: V) -> Self {
+        let mut normal = Vector3::zero();
 
-pub fn surface_normal(vertices: &Vec<Vertex>) -> Normal {
-    let mut normal = Vector3::zero();
+        for (i, current) in vertices.iter().enumerate() {
+            let next = vertices[(i + 1) % (vertices.len() - 1)];
 
-    for (i, current) in vertices.iter().enumerate() {
-        let next = vertices[(i + 1) % (vertices.len() - 1)];
+            normal += Vector3::new(
+                (current.position[1] - next.position[1]) * (current.position[2] + next.position[2]),
+                (current.position[2] - next.position[2]) * (current.position[0] + next.position[0]),
+                (current.position[0] - next.position[0]) * (current.position[1] + next.position[1]),
+            );
+        }
 
-        normal += Vector3::new(
-            (current.position[1] - next.position[1]) * (current.position[2] + next.position[2]),
-            (current.position[2] - next.position[2]) * (current.position[0] + next.position[0]),
-            (current.position[0] - next.position[0]) * (current.position[1] + next.position[1]),
-        );
-    }
-
-    Normal {
-        normal: normal.normalize().into(),
+        Normal {
+            normal: normal.normalize().into(),
+        }
     }
 }
+
+vulkano::impl_vertex!(Normal, normal);
 
 pub struct Mesh {
     pub vertices: Vec<Vertex>,

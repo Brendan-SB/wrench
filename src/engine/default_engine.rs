@@ -110,8 +110,7 @@ impl DefaultEngine {
                 .transform(SurfaceTransform::Identity)
                 .clipped(true)
                 .color_space(ColorSpace::SrgbNonLinear)
-                .build()
-                .unwrap()
+                .build()?
         };
         let render_pass = Arc::new(vulkano::single_pass_renderpass!(device.clone(),
             attachments: {

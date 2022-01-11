@@ -7,6 +7,7 @@ use vulkano::{
     memory::DeviceMemoryAllocError,
     pipeline::GraphicsPipelineCreationError,
     render_pass::RenderPassCreationError,
+    swapchain::SwapchainCreationError,
     OomError,
 };
 use vulkano_win::CreationError;
@@ -22,6 +23,7 @@ pub enum Error {
     InstanceCreationError(InstanceCreationError),
     CreationError(CreationError),
     DeviceCreationError(DeviceCreationError),
+    SwapchainCreationError(SwapchainCreationError),
     IoError(io::Error),
     OomError(OomError),
     RenderPassCreationError(RenderPassCreationError),
@@ -47,6 +49,12 @@ impl From<CreationError> for Error {
 impl From<DeviceCreationError> for Error {
     fn from(e: DeviceCreationError) -> Self {
         Self::DeviceCreationError(e)
+    }
+}
+
+impl From<SwapchainCreationError> for Error {
+    fn from(e: SwapchainCreationError) -> Self {
+        Self::SwapchainCreationError(e)
     }
 }
 

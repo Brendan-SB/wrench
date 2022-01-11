@@ -543,10 +543,12 @@ impl Engine for DefaultEngine {
                         Ok(future) => {
                             previous_frame_end = Some(future.boxed());
                         }
+
                         Err(FlushError::OutOfDate) => {
                             recreate_swapchain = true;
                             previous_frame_end = Some(sync::now(self.device.clone()).boxed());
                         }
+
                         Err(e) => {
                             println!("Failed to flush future: {:?}", e);
 

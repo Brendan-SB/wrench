@@ -174,12 +174,12 @@ impl DefaultEngine {
         Self::new(0, surface, instance, event_loop, scene, sample_count)
     }
 
-    fn window_size_dependent_setup<W>(
+    fn window_size_dependent_setup(
         images: &Vec<Arc<SwapchainImage<Window>>>,
         render_pass: Arc<RenderPass>,
         device: Arc<Device>,
         shaders: Arc<Shaders>,
-        swapchain: Arc<Swapchain<W>>,
+        swapchain: Arc<Swapchain<Window>>,
         sample_count: Arc<SampleCount>,
     ) -> Result<
         (

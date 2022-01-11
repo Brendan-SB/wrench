@@ -28,7 +28,10 @@ impl Entity {
         entity.remove(component);
     }
 
-    pub fn add(self: &Arc<Self>, component: Arc<dyn Component>) {
+    pub fn add<C>(self: &Arc<Self>, component: &Arc<C>)
+    where
+        C: Component,
+    {
         Self::setup_component(component.clone());
 
         *component.entity().lock().unwrap() = Some(self.clone());
@@ -39,11 +42,14 @@ impl Entity {
             Some(components) => {
                 let mut components = components.lock().unwrap();
 
-                components.push(component);
+                components.push(component.clone());
             }
 
             None => {
-                components.insert(component.tid(), Arc::new(Mutex::new(vec![component])));
+                components.insert(
+                    component.tid(),
+                    Arc::new(Mutex::new(vec![component.clone()])),
+                );
             }
         }
     }
@@ -113,27 +119,29 @@ impl Entity {
         self.remove_by_id(component.tid(), component.id());
     }
 
+    fn remove_from_target(target: &Mutex<Vec<Arc<dyn Component>>>, id: Arc<String>) -> bool {
+        let mut target = target.lock().unwrap();
+
+        target
+            .clone()
+            .into_iter()
+            .enumerate()
+            .filter(|(_, c)| *c.id() == *id)
+            .for_each(|(i, v)| {
+                target.remove(i);
+                *v.entity().lock().unwrap() = None;
+            });
+
+        target.is_empty()
+    }
+
     pub fn remove_by_id(&self, tid: Arc<String>, id: Arc<String>) {
         let mut components = self.components.lock().unwrap();
 
         if let Some(target) = components.get(&tid) {
-            let is_empty = {
-                let mut target = target.lock().unwrap();
+            let target_is_empty = Self::remove_from_target(target, id);
 
-                target
-                    .clone()
-                    .into_iter()
-                    .enumerate()
-                    .filter(|(_, c)| *c.id() == *id)
-                    .for_each(|(i, v)| {
-                        target.remove(i);
-                        *v.entity().lock().unwrap() = None;
-                    });
-
-                target.is_empty()
-            };
-
-            if is_empty {
+            if target_is_empty {
                 components.remove(&tid);
             }
         }

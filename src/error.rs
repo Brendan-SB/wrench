@@ -1,5 +1,5 @@
 use obj::ObjError;
-use std::{error, io};
+use std::io;
 use vulkano::{
     device::DeviceCreationError,
     image::{sys::ImageCreationError, view::ImageViewCreationError},
@@ -30,7 +30,6 @@ pub enum Error {
     ObjError(ObjError),
     ImageCreationError(ImageCreationError),
     ImageViewCreationError(ImageViewCreationError),
-    Error(Box<dyn error::Error>),
 }
 
 impl From<InstanceCreationError> for Error {
@@ -96,11 +95,5 @@ impl From<ImageCreationError> for Error {
 impl From<ImageViewCreationError> for Error {
     fn from(e: ImageViewCreationError) -> Self {
         Self::ImageViewCreationError(e)
-    }
-}
-
-impl From<Box<dyn error::Error>> for Error {
-    fn from(e: Box<dyn error::Error>) -> Self {
-        Self::Error(e)
     }
 }

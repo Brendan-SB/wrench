@@ -39,7 +39,7 @@ use winit::{
 
 pub struct DefaultEngine {
     pub physical_index: usize,
-    pub sample_count: Arc<SampleCount>,
+    pub sample_count: SampleCount,
     pub event_loop: EventLoop<()>,
     pub device: Arc<Device>,
     pub queue: Arc<Queue>,
@@ -66,7 +66,7 @@ impl DefaultEngine {
         instance: Arc<Instance>,
         event_loop: EventLoop<()>,
         scene: Arc<Scene>,
-        sample_count: Arc<SampleCount>,
+        sample_count: SampleCount,
     ) -> Result<Self, Error> {
         let physical = match PhysicalDevice::from_index(&instance, physical_index) {
             Some(physical) => physical,
@@ -118,13 +118,13 @@ impl DefaultEngine {
                     load: Clear,
                     store: Store,
                     format: swapchain.format(),
-                    samples: *sample_count,
+                    samples: sample_count,
                 },
                 depth: {
                     load: Clear,
                     store: Store,
                     format: Format::D16_UNORM,
-                    samples: *sample_count,
+                    samples: sample_count,
                 },
                 color: {
                     load: Clear,
@@ -145,7 +145,7 @@ impl DefaultEngine {
             device.clone(),
             shaders.clone(),
             swapchain.clone(),
-            sample_count.clone(),
+            sample_count,
         )?;
 
         Ok(Self {
@@ -169,7 +169,7 @@ impl DefaultEngine {
         instance: Arc<Instance>,
         event_loop: EventLoop<()>,
         scene: Arc<Scene>,
-        sample_count: Arc<SampleCount>,
+        sample_count: SampleCount,
     ) -> Result<Self, Error> {
         Self::new(0, surface, instance, event_loop, scene, sample_count)
     }
@@ -180,7 +180,7 @@ impl DefaultEngine {
         device: Arc<Device>,
         shaders: Arc<Shaders>,
         swapchain: Arc<Swapchain<Window>>,
-        sample_count: Arc<SampleCount>,
+        sample_count: SampleCount,
     ) -> Result<
         (
             Arc<GraphicsPipeline>,
@@ -192,13 +192,13 @@ impl DefaultEngine {
         let intermediary = ImageView::new(AttachmentImage::transient_multisampled(
             device.clone(),
             dimensions,
-            (*sample_count).clone(),
+            sample_count,
             swapchain.format(),
         )?)?;
         let depth_buffer = ImageView::new(AttachmentImage::transient_multisampled(
             device.clone(),
             dimensions,
-            (*sample_count).clone(),
+            sample_count,
             Format::D16_UNORM,
         )?)?;
         let framebuffers = images

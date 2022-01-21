@@ -38,7 +38,7 @@ layout(set = 0, binding = 2) uniform Data {
 } uniforms;
 
 void main() {
-    vec4 tex_color = texture(tex, tex_coord);
+    vec4 tex_color = texture(tex, tex_coord) * uniforms.color;
 
     if (tex_color.a == 0.0) {
       discard;
@@ -81,5 +81,5 @@ void main() {
         brightness += (diff + spec) * light.intensity * light.color * attenuation * edge_softness;
     }
     
-    f_color = tex_color * uniforms.color * brightness;
+    f_color = tex_color * brightness;
 }

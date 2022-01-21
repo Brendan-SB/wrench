@@ -240,6 +240,7 @@ impl DefaultEngine {
                     depth_range: 0.0..1.0,
                 }])
                 .depth_stencil(DepthStencil::simple_depth_test())
+                .blend_alpha_blending()
                 .build(device.clone())?,
         );
 

@@ -39,11 +39,6 @@ layout(set = 0, binding = 2) uniform Data {
 
 void main() {
     vec4 tex_color = texture(tex, tex_coord) * uniforms.color;
-
-    if (tex_color.a == 0.0) {
-      discard;
-    }
-
     vec3 norm = normalize(global_translation * normal);
 
     mat4 cam_offset = -mat4(cam_translation);

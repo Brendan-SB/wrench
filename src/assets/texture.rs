@@ -30,7 +30,7 @@ impl Texture {
         let (image, _) = ImmutableImage::from_iter(
             image_data.iter().cloned(),
             dimensions,
-            MipmapsCount::One,
+            MipmapsCount::Log2,
             Format::R8G8B8A8_SRGB,
             queue.clone(),
         )

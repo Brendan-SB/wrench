@@ -76,5 +76,5 @@ void main() {
         brightness += (diff + spec) * light.intensity * light.color * attenuation * edge_softness;
     }
     
-    f_color = tex_color * brightness;
+    f_color = tex_color * vec4(brightness.xyz, 1.0);
 }

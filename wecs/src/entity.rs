@@ -1,26 +1,29 @@
-use crate::{Component, World};
+use crate::Component;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
+    any::Any,
 };
 
 pub struct Entity {
     pub id: Arc<String>,
-    pub world: Mutex<Option<Arc<World>>>,
+    pub tid: Arc<String>,
+    pub entity: Arc<Mutex<Option<Arc<Entity>>>>,
     components: Arc<Mutex<HashMap<Arc<String>, Arc<Mutex<Vec<Arc<dyn Component>>>>>>>,
 }
 
 impl Entity {
-    pub fn new(id: Arc<String>, world: Mutex<Option<Arc<World>>>) -> Arc<Self> {
+    pub fn new(id: Arc<String>) -> Arc<Self> {
         Arc::new(Self {
             id,
-            world,
+            tid: Arc::new("entity".to_string()),
+            entity: Arc::new(Mutex::new(None)),
             components: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 
-    fn setup_component(component: Arc<dyn Component>) {
-        let entity = match &*component.entity().lock().unwrap() {
+    fn setup_component(component: Arc<dyn Component>, entity: &Option<Arc<Entity>>) {
+        let entity = match entity {
             Some(entity) => entity.clone(),
             None => return,
         };
@@ -32,9 +35,12 @@ impl Entity {
     where
         C: Component,
     {
-        Self::setup_component(component.clone());
+        let entity = component.entity();
+        let mut entity = entity.lock().unwrap();
 
-        *component.entity().lock().unwrap() = Some(self.clone());
+        Self::setup_component(component.clone(), &*entity);
+
+        *entity = Some(self.clone());
 
         let mut components = self.components.lock().unwrap();
 
@@ -143,6 +149,40 @@ impl Entity {
 
             if target_is_empty {
                 components.remove(&tid);
+            }
+        }
+    }
+}
+
+impl Component for Entity {
+    fn entity(&self) -> Arc<Mutex<Option<Arc<Entity>>>> {
+        self.entity.clone()
+    }
+
+    fn id(&self) -> Arc<String> {
+        self.id.clone()
+    }
+
+    fn tid(&self) -> Arc<String> {
+        self.tid.clone()
+    }
+
+    fn as_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync + 'static> {
+        self.clone() as Arc<dyn Any + Send + Sync + 'static>
+    }
+
+    fn init(&self) {
+        for (_, v) in &*self.components.lock().unwrap() {
+            for component in &*v.lock().unwrap() {
+                component.init();
+            }
+        }
+    }
+
+    fn update(&self) {
+        for (_, v) in &*self.components.lock().unwrap() {
+            for component in &*v.lock().unwrap() {
+                component.update();
             }
         }
     }

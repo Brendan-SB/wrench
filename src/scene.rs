@@ -1,8 +1,8 @@
-use crate::{assets::Light, components::Camera, ecs::World, Vector4};
+use crate::{assets::Light, components::Camera, ecs::Entity, Vector4};
 use std::sync::{Arc, Mutex};
 
 pub struct Scene {
-    pub world: Arc<World>,
+    pub root: Arc<Entity>,
     pub camera: Mutex<Arc<Camera>>,
     pub lights: Mutex<Vec<Arc<Light>>>,
     pub bg: Mutex<Vector4<f32>>,
@@ -10,13 +10,13 @@ pub struct Scene {
 
 impl Scene {
     pub fn new(
-        world: Arc<World>,
+        root: &Arc<Entity>,
         camera: Arc<Camera>,
         lights: Vec<Arc<Light>>,
         bg: Vector4<f32>,
     ) -> Arc<Self> {
         Arc::new(Self {
-            world,
+            root: root.clone(),
             camera: Mutex::new(camera),
             lights: Mutex::new(lights),
             bg: Mutex::new(bg),

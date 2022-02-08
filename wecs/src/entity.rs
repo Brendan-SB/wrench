@@ -123,7 +123,7 @@ impl Entity {
 
     pub fn remove<T>(&self, component: &Arc<T>)
     where T: Component + ?Sized {
-        self.remove_by_id(&mut *self.components.lock().unwrap(), component.tid(), component.id());
+        self.remove_by_id(component.tid(), component.id());
     }
 
     fn remove_from_target(target: &Mutex<Vec<Arc<dyn Component>>>, id: Arc<String>) -> bool {
@@ -143,7 +143,9 @@ impl Entity {
         target.is_empty()
     }
 
-    fn remove_by_id(&self, components: &mut HashMap<Arc<String>, Arc<Mutex<Vec<Arc<dyn Component>>>>>, tid: Arc<String>, id: Arc<String>) {
+    fn remove_by_id(&self, tid: Arc<String>, id: Arc<String>) {
+        let mut components = self.components.lock().unwrap();
+
         if let Some(target) = components.get(&tid) {
             let target_is_empty = Self::remove_from_target(target, id);
 
@@ -172,16 +174,32 @@ impl Component for Entity {
     }
 
     fn init(&self) {
-        for (_, v) in &*self.components.lock().unwrap() {
-            for component in &*v.lock().unwrap() {
+        let components = {
+            self.components.lock().unwrap().clone()
+        };
+
+        for (_, v) in components {
+            let v = {
+                v.lock().unwrap().clone()
+            };
+
+            for component in v {
                 component.init();
             }
         }
     }
 
     fn update(&self) {
-        for (_, v) in &*self.components.lock().unwrap() {
-            for component in &*v.lock().unwrap() {
+        let components = {
+            self.components.lock().unwrap().clone()
+        };
+
+        for (_, v) in components {
+            let v = {
+                v.lock().unwrap().clone()
+            };
+
+            for component in v {
                 component.update();
             }
         }
@@ -198,7 +216,7 @@ impl Component for Entity {
             };
 
             for component in v {
-                self.remove_by_id(&mut self.components.lock().unwrap(), component.tid(), component.id());
+                self.remove_by_id(component.tid(), component.id());
             }
         }
     }

@@ -28,7 +28,7 @@ impl Entity {
             None => return,
         };
 
-        entity.remove(component);
+        entity.remove(&component);
     }
 
     pub fn add<C>(self: &Arc<Self>, component: &Arc<C>)
@@ -108,7 +108,7 @@ impl Entity {
 
     pub fn get_first<T>(&self, tid: Arc<String>) -> Option<Arc<T>>
     where
-        T: Component + Send + Sync,
+        T: Component,
     {
         match self.get_type::<T>(tid) {
             Some(components) => match components.first() {
@@ -121,8 +121,9 @@ impl Entity {
         }
     }
 
-    pub fn remove(&self, component: Arc<dyn Component>) {
-        self.remove_by_id(component.tid(), component.id());
+    pub fn remove<T>(&self, component: &Arc<T>)
+    where T: Component + ?Sized {
+        self.remove_by_id(&mut *self.components.lock().unwrap(), component.tid(), component.id());
     }
 
     fn remove_from_target(target: &Mutex<Vec<Arc<dyn Component>>>, id: Arc<String>) -> bool {
@@ -134,6 +135,7 @@ impl Entity {
             .enumerate()
             .filter(|(_, c)| *c.id() == *id)
             .for_each(|(i, v)| {
+                v.remove();
                 target.remove(i);
                 *v.entity().lock().unwrap() = None;
             });
@@ -141,9 +143,7 @@ impl Entity {
         target.is_empty()
     }
 
-    pub fn remove_by_id(&self, tid: Arc<String>, id: Arc<String>) {
-        let mut components = self.components.lock().unwrap();
-
+    fn remove_by_id(&self, components: &mut HashMap<Arc<String>, Arc<Mutex<Vec<Arc<dyn Component>>>>>, tid: Arc<String>, id: Arc<String>) {
         if let Some(target) = components.get(&tid) {
             let target_is_empty = Self::remove_from_target(target, id);
 
@@ -183,6 +183,22 @@ impl Component for Entity {
         for (_, v) in &*self.components.lock().unwrap() {
             for component in &*v.lock().unwrap() {
                 component.update();
+            }
+        }
+    }
+
+    fn remove(&self) {
+        let components = {
+            self.components.lock().unwrap().clone()
+        };
+
+        for (_, v) in components {
+            let v = {
+                v.lock().unwrap().clone()
+            };
+
+            for component in v {
+                self.remove_by_id(&mut self.components.lock().unwrap(), component.tid(), component.id());
             }
         }
     }

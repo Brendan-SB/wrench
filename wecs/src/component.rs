@@ -16,4 +16,6 @@ pub trait Component: Send + Sync + 'static {
     fn init(&self) {}
 
     fn update(&self) {}
+
+    fn remove(&self) {}
 }

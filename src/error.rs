@@ -1,5 +1,6 @@
 use obj::ObjError;
 use std::io;
+use png::DecodingError;
 use vulkano::{
     device::DeviceCreationError,
     image::{sys::ImageCreationError, view::ImageViewCreationError},
@@ -32,6 +33,7 @@ pub enum Error {
     ObjError(ObjError),
     ImageCreationError(ImageCreationError),
     ImageViewCreationError(ImageViewCreationError),
+    DecodingError(DecodingError),
 }
 
 impl From<InstanceCreationError> for Error {
@@ -103,5 +105,11 @@ impl From<ImageCreationError> for Error {
 impl From<ImageViewCreationError> for Error {
     fn from(e: ImageViewCreationError) -> Self {
         Self::ImageViewCreationError(e)
+    }
+}
+
+impl From<DecodingError> for Error {
+    fn from(e: DecodingError) -> Self {
+        Self::DecodingError(e)
     }
 }

@@ -1,6 +1,6 @@
 use obj::ObjError;
-use std::io;
 use png::DecodingError;
+use std::io;
 use vulkano::{
     device::DeviceCreationError,
     image::{sys::ImageCreationError, view::ImageViewCreationError},

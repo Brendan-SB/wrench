@@ -13,7 +13,11 @@ pub struct Texture {
 }
 
 impl Texture {
-    pub fn new(queue: Arc<Queue>, bytes: Vec<u8>, sampler: Arc<Sampler>) -> Result<Arc<Self>, Error> {
+    pub fn new(
+        queue: Arc<Queue>,
+        bytes: Vec<u8>,
+        sampler: Arc<Sampler>,
+    ) -> Result<Arc<Self>, Error> {
         let cursor = Cursor::new(bytes);
         let decoder = png::Decoder::new(cursor);
         let mut reader = decoder.read_info()?;

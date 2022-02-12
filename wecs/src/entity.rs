@@ -1,4 +1,4 @@
-use crate::Component;
+use crate::{self as ecs, Component};
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
@@ -16,31 +16,26 @@ impl Entity {
     pub fn new(id: Arc<String>) -> Arc<Self> {
         Arc::new(Self {
             id,
-            tid: Arc::new("entity".to_string()),
-            entity: Arc::new(Mutex::new(None)),
+            tid: ecs::id("entity"),
+            entity: ecs::entity(None),
             components: Arc::new(Mutex::new(HashMap::new())),
         })
-    }
-
-    fn setup_component(component: Arc<dyn Component>, entity: &Option<Arc<Entity>>) {
-        let entity = match entity {
-            Some(entity) => entity.clone(),
-            None => return,
-        };
-
-        entity.remove(&component);
     }
 
     pub fn add<C>(self: &Arc<Self>, component: &Arc<C>)
     where
         C: Component,
     {
-        let entity = component.entity();
-        let mut entity = entity.lock().unwrap();
+        let e = component.entity();
+        let entity = {
+            e.lock().unwrap().clone()
+        };
 
-        Self::setup_component(component.clone(), &*entity);
+        if let Some(entity) = entity {
+            entity.remove(&component);
+        }
 
-        *entity = Some(self.clone());
+        *e.lock().unwrap() = Some(self.clone());
 
         let mut components = self.components.lock().unwrap();
 
@@ -69,9 +64,9 @@ impl Entity {
             .collect()
     }
 
-    pub fn get_type<T>(&self, tid: Arc<String>) -> Option<Arc<Vec<Arc<T>>>>
+    pub fn get_type<C>(&self, tid: Arc<String>) -> Option<Arc<Vec<Arc<C>>>>
     where
-        T: Component,
+        C: Component,
     {
         match self.components.lock().unwrap().get(&tid) {
             Some(components) => Some(Arc::new(
@@ -79,17 +74,17 @@ impl Entity {
                     .lock()
                     .unwrap()
                     .iter()
-                    .map(|c| c.clone().as_any().downcast::<T>().unwrap())
-                    .collect::<Vec<Arc<T>>>(),
+                    .map(|c| c.clone().as_any().downcast::<C>().unwrap())
+                    .collect::<Vec<Arc<C>>>(),
             )),
 
             None => None,
         }
     }
 
-    pub fn get<T>(&self, tid: Arc<String>, id: Arc<String>) -> Option<Arc<Vec<Arc<T>>>>
+    pub fn get<C>(&self, tid: Arc<String>, id: Arc<String>) -> Option<Arc<Vec<Arc<C>>>>
     where
-        T: Component,
+        C: Component,
     {
         match self.components.lock().unwrap().get(&tid) {
             Some(components) => Some(Arc::new(
@@ -98,19 +93,19 @@ impl Entity {
                     .unwrap()
                     .iter()
                     .filter(|c| *c.id() == *id)
-                    .map(|c| c.clone().as_any().downcast::<T>().unwrap())
-                    .collect::<Vec<Arc<T>>>(),
+                    .map(|c| c.clone().as_any().downcast::<C>().unwrap())
+                    .collect::<Vec<Arc<C>>>(),
             )),
 
             None => None,
         }
     }
 
-    pub fn get_first<T>(&self, tid: Arc<String>) -> Option<Arc<T>>
+    pub fn get_first<C>(&self, tid: Arc<String>) -> Option<Arc<C>>
     where
-        T: Component,
+        C: Component,
     {
-        match self.get_type::<T>(tid) {
+        match self.get_type::<C>(tid) {
             Some(components) => match components.first() {
                 Some(component) => Some(component.clone()),
 
@@ -121,8 +116,8 @@ impl Entity {
         }
     }
 
-    pub fn remove<T>(&self, component: &Arc<T>)
-    where T: Component + ?Sized {
+    pub fn remove<C>(&self, component: &Arc<C>)
+    where C: Component + ?Sized {
         self.remove_by_id(component.tid(), component.id());
     }
 
@@ -216,7 +211,7 @@ impl Component for Entity {
             };
 
             for component in v {
-                self.remove_by_id(component.tid(), component.id());
+                self.remove(&component);
             }
         }
     }

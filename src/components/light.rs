@@ -1,6 +1,6 @@
 use crate::{
     ecs::{self, reexports::*},
-    Vector4,
+    Vector3,
 };
 use std::sync::{Arc, Mutex};
 
@@ -9,7 +9,7 @@ pub struct Light {
     pub id: Arc<String>,
     pub tid: Arc<String>,
     pub entity: Arc<Mutex<Option<Arc<Entity>>>>,
-    pub color: Mutex<Vector4<f32>>,
+    pub color: Mutex<Vector3<f32>>,
     pub directional: Mutex<bool>,
     pub intensity: Mutex<f32>,
     pub cutoff: Mutex<f32>,
@@ -20,7 +20,7 @@ pub struct Light {
 impl Light {
     pub fn new(
         id: Arc<String>,
-        color: Vector4<f32>,
+        color: Vector3<f32>,
         directional: bool,
         intensity: f32,
         cutoff: f32,

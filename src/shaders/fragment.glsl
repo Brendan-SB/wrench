@@ -5,7 +5,7 @@
 struct Light {
     vec3 position;
     mat4 rotation;
-    vec4 color;
+    vec3 color;
     bool directional;
     float intensity;
     float cutoff;
@@ -73,7 +73,7 @@ void main() {
         float diff = max(dot(norm, light_dir), 0.0) * uniforms.diff_strength;
         float spec = pow(max(dot(view_dir, reflect_dir), 0.0), uniforms.spec_power) * uniforms.spec_strength;
 
-        brightness += (diff + spec) * light.intensity * light.color * attenuation * edge_softness;
+        brightness += (diff + spec) * light.intensity * vec4(light.color, 1.0) * attenuation * edge_softness;
     }
     
     f_color = tex_color * vec4(brightness.xyz, 1.0);

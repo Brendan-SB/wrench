@@ -1,12 +1,12 @@
 use super::Engine;
 use crate::{
     assets::mesh::{Normal, Vertex},
-    components::{EventHandler, Model},
+    components::{EventHandler, Light, Model},
     ecs::{self, Component, Entity},
     error::Error,
     scene::Scene,
     shaders::{fragment, vertex, Shaders},
-    Matrix4, Vector3, Vector4, Zero,
+    Matrix4, Vector3, Zero,
 };
 use std::sync::{Arc, Mutex};
 use vulkano::{
@@ -275,7 +275,9 @@ impl DefaultEngine {
         pipeline: &GraphicsPipeline,
         suboptimal: bool,
         recreate_swapchain: &mut bool,
+        light_count: &mut usize,
         lights_array: &mut [fragment::ty::Light; 1024],
+        lights: &Option<Vec<Arc<Light>>>,
         uniform_buffer: &CpuBufferPool<vertex::ty::Data>,
         frag_uniform_buffer: &CpuBufferPool<fragment::ty::Data>,
         scene: &Scene,
@@ -291,7 +293,9 @@ impl DefaultEngine {
                             pipeline,
                             suboptimal,
                             recreate_swapchain,
+                            light_count,
                             lights_array,
+                            lights,
                             uniform_buffer,
                             frag_uniform_buffer,
                             scene,
@@ -307,7 +311,9 @@ impl DefaultEngine {
                     pipeline,
                     suboptimal,
                     recreate_swapchain,
+                    light_count,
                     lights_array,
+                    lights,
                     uniform_buffer,
                     frag_uniform_buffer,
                     scene,
@@ -329,14 +335,13 @@ impl Engine for DefaultEngine {
         let mut lights_array = [fragment::ty::Light {
             position: Vector3::zero().into(),
             rotation: Matrix4::zero().into(),
-            color: Vector4::zero().into(),
+            color: Vector3::zero().into(),
             directional: 0,
             cutoff: 0.0,
             outer_cutoff: 0.0,
             intensity: 0.0,
             attenuation: 0.0,
             _dummy0: [0; 4],
-            _dummy1: [0; 12],
         }; 1024];
         let mut recreate_swapchain = false;
         let mut previous_frame_end = Some(sync::now(self.device.clone()).boxed());
@@ -434,7 +439,9 @@ impl Engine for DefaultEngine {
                         &*pipeline,
                         suboptimal,
                         &mut recreate_swapchain,
+                        &mut 0,
                         &mut lights_array,
+                        &scene.get_lights(),
                         &uniform_buffer,
                         &frag_uniform_buffer,
                         &scene,

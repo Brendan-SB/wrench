@@ -56,7 +56,9 @@ impl Model {
         pipeline: &GraphicsPipeline,
         suboptimal: bool,
         recreate_swapchain: &mut bool,
+        light_count: &mut usize,
         lights_array: &mut [fragment::ty::Light; 1024],
+        lights: &Option<Vec<Arc<Light>>>,
         uniform_buffer: &CpuBufferPool<vertex::ty::Data>,
         frag_uniform_buffer: &CpuBufferPool<fragment::ty::Data>,
         scene: &Scene,
@@ -118,63 +120,66 @@ impl Model {
                     };
 
                     let frag_uniform_buffer_subbuffer = {
-                        let uniform_data = match entity.get_type::<Light>(ecs::id("light")) {
-                            Some(lights) => {
-                                for (i, light) in lights.iter().enumerate() {
-                                    let rotation = {
-                                        let rotation = transform_data.rotation;
+                        let uniform_data = {
+                            let material = self.material.lock().unwrap();
 
-                                        Matrix4::from_angle_x(Rad(rotation.x))
-                                            * Matrix4::from_angle_y(Rad(rotation.y))
-                                            * Matrix4::from_angle_z(Rad(rotation.z))
+                            match lights {
+                                Some(lights) => {
+                                    for light in &*lights {
+                                        let rotation = {
+                                            let rotation = transform_data.rotation;
+
+                                            Matrix4::from_angle_x(Rad(rotation.x))
+                                                * Matrix4::from_angle_y(Rad(rotation.y))
+                                                * Matrix4::from_angle_z(Rad(rotation.z))
+                                        };
+
+                                        lights_array[*light_count] = fragment::ty::Light {
+                                            position: (transform_data.position.into()),
+                                            rotation: rotation.into(),
+                                            color: (*light.color.lock().unwrap()).into(),
+                                            directional: *light.directional.lock().unwrap() as u32,
+                                            intensity: *light.intensity.lock().unwrap(),
+                                            cutoff: *light.cutoff.lock().unwrap(),
+                                            outer_cutoff: *light.outer_cutoff.lock().unwrap(),
+                                            attenuation: *light.attenuation.lock().unwrap(),
+                                            _dummy0: [0; 4],
+                                        };
+
+                                        *light_count += 1;
+                                    }
+
+                                    let uniform_data = fragment::ty::Data {
+                                        color: (*self.color.lock().unwrap()).into(),
+                                        ambient: *material.ambient.lock().unwrap(),
+                                        diff_strength: *material.diff_strength.lock().unwrap(),
+                                        spec_strength: *material.spec_strength.lock().unwrap(),
+                                        spec_power: *material.spec_power.lock().unwrap(),
+                                        lights: fragment::ty::LightArray {
+                                            len: lights.len() as u32,
+                                            array: *lights_array,
+                                            _dummy0: [0; 12],
+                                        },
                                     };
 
-                                    lights_array[i] = fragment::ty::Light {
-                                        position: (transform_data.position.into()),
-                                        rotation: rotation.into(),
-                                        color: (*light.color.lock().unwrap()).into(),
-                                        directional: *light.directional.lock().unwrap() as u32,
-                                        intensity: *light.intensity.lock().unwrap(),
-                                        cutoff: *light.cutoff.lock().unwrap(),
-                                        outer_cutoff: *light.outer_cutoff.lock().unwrap(),
-                                        attenuation: *light.attenuation.lock().unwrap(),
-                                        _dummy0: [0; 4],
-                                        _dummy1: [0; 12],
-                                    };
+                                    uniform_data
                                 }
+                                None => {
+                                    let uniform_data = fragment::ty::Data {
+                                        color: (*self.color.lock().unwrap()).into(),
+                                        ambient: *material.ambient.lock().unwrap(),
+                                        diff_strength: *material.diff_strength.lock().unwrap(),
+                                        spec_strength: *material.spec_strength.lock().unwrap(),
+                                        spec_power: *material.spec_power.lock().unwrap(),
+                                        lights: fragment::ty::LightArray {
+                                            len: 0,
+                                            array: *lights_array,
+                                            _dummy0: [0; 12],
+                                        },
+                                    };
 
-                                let material = self.material.lock().unwrap();
-                                let uniform_data = fragment::ty::Data {
-                                    color: (*self.color.lock().unwrap()).into(),
-                                    ambient: *material.ambient.lock().unwrap(),
-                                    diff_strength: *material.diff_strength.lock().unwrap(),
-                                    spec_strength: *material.spec_strength.lock().unwrap(),
-                                    spec_power: *material.spec_power.lock().unwrap(),
-                                    lights: fragment::ty::LightArray {
-                                        len: lights.len() as u32,
-                                        array: *lights_array,
-                                        _dummy0: [0; 12],
-                                    },
-                                };
-
-                                uniform_data
-                            }
-                            None => {
-                                let material = self.material.lock().unwrap();
-                                let uniform_data = fragment::ty::Data {
-                                    color: (*self.color.lock().unwrap()).into(),
-                                    ambient: *material.ambient.lock().unwrap(),
-                                    diff_strength: *material.diff_strength.lock().unwrap(),
-                                    spec_strength: *material.spec_strength.lock().unwrap(),
-                                    spec_power: *material.spec_power.lock().unwrap(),
-                                    lights: fragment::ty::LightArray {
-                                        len: 0,
-                                        array: *lights_array,
-                                        _dummy0: [0; 12],
-                                    },
-                                };
-
-                                uniform_data
+                                    uniform_data
+                                }
                             }
                         };
 

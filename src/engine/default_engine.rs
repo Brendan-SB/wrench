@@ -249,18 +249,16 @@ impl DefaultEngine {
         Ok((pipeline, framebuffers))
     }
 
-    fn handle_events(entities: Option<Arc<Vec<Arc<Entity>>>>, event: &Event<()>) {
-        if let Some(entities) = entities {
-            for entity in &*entities {
-                if let Some(event_handlers) =
-                    entity.get_type::<EventHandler>(ecs::id("event handler"))
-                {
-                    for event_handler in &*event_handlers {
-                        event_handler.handle(event);
-                    }
-                }
+    fn handle_events(entity: Arc<Entity>, event: &Event<()>) {
+        if let Some(event_handlers) = entity.get_type::<EventHandler>(ecs::id("event handler")) {
+            for event_handler in &*event_handlers {
+                event_handler.handle(event);
+            }
+        }
 
-                Self::handle_events(entity.get_type(ecs::id("entity")), event);
+        if let Some(entities) = entity.get_type::<Entity>(ecs::id("entity")) {
+            for entity in &*entities {
+                Self::handle_events(entity.clone(), event);
             }
         }
     }
@@ -350,9 +348,7 @@ impl Engine for DefaultEngine {
             {
                 let scene = self.scene.lock().unwrap();
 
-                scene.root.update();
-
-                Self::handle_events(scene.root.get_type::<Entity>(ecs::id("entity")), &event);
+                Self::handle_events(scene.root.clone(), &event);
             }
 
             match event {
@@ -376,6 +372,8 @@ impl Engine for DefaultEngine {
                     let mut swapchain = self.swapchain.lock().unwrap();
                     let mut framebuffers = self.framebuffers.lock().unwrap();
                     let scene = self.scene.lock().unwrap();
+
+                    scene.root.update();
 
                     if recreate_swapchain {
                         let (new_swapchain, new_images) =

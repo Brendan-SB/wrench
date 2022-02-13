@@ -43,7 +43,7 @@ impl Transform {
         Self::new(id, position, rotation, Vector3::new(1.0, 1.0, 1.0))
     }
 
-    fn calculate_transform_inner(&self, data: &mut TransformData) {
+    fn calculate_inner(&self, data: &mut TransformData) {
         {
             let d = self.data.lock().unwrap();
 
@@ -59,20 +59,20 @@ impl Transform {
 
             if let Some(entity) = entity {
                 if let Some(transform) = entity.get_first::<Self>(ecs::id("transform")) {
-                    transform.calculate_transform_inner(data);
+                    transform.calculate_inner(data);
                 }
             }
         }
     }
 
-    pub fn calculate_transform(&self) -> TransformData {
+    pub fn calculate(&self) -> TransformData {
         let mut data = TransformData {
             position: Vector3::zero(),
             rotation: Vector3::zero(),
             scale: Vector3::zero(),
         };
 
-        self.calculate_transform_inner(&mut data);
+        self.calculate_inner(&mut data);
 
         data
     }

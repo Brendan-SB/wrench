@@ -75,8 +75,8 @@ impl Model {
                     entity.get_first::<Transform>(ecs::id("transform")),
                     camera_entity.get_first::<Transform>(ecs::id("transform")),
                 ) {
-                    let transform_data = transform.calculate_transform();
-                    let camera_transform_data = camera_transform.calculate_transform();
+                    let transform_data = transform.calculate();
+                    let camera_transform_data = camera_transform.calculate();
                     let uniform_buffer_subbuffer = {
                         let rotation = {
                             let rotation = transform_data.rotation;
@@ -126,27 +126,43 @@ impl Model {
                             match lights {
                                 Some(lights) => {
                                     for light in &*lights {
-                                        let rotation = {
-                                            let rotation = transform_data.rotation;
+                                        let light_entity = { light.entity.lock().unwrap().clone() };
 
-                                            Matrix4::from_angle_x(Rad(rotation.x))
-                                                * Matrix4::from_angle_y(Rad(rotation.y))
-                                                * Matrix4::from_angle_z(Rad(rotation.z))
-                                        };
+                                        if let Some(light_entity) = light_entity {
+                                            if let Some(light_transform) = light_entity
+                                                .get_first::<Transform>(ecs::id("transform"))
+                                            {
+                                                let light_transform_data =
+                                                    light_transform.calculate();
+                                                let rotation = {
+                                                    let rotation = light_transform_data.rotation;
 
-                                        lights_array[*light_count] = fragment::ty::Light {
-                                            position: (transform_data.position.into()),
-                                            rotation: rotation.into(),
-                                            color: (*light.color.lock().unwrap()).into(),
-                                            directional: *light.directional.lock().unwrap() as u32,
-                                            intensity: *light.intensity.lock().unwrap(),
-                                            cutoff: *light.cutoff.lock().unwrap(),
-                                            outer_cutoff: *light.outer_cutoff.lock().unwrap(),
-                                            attenuation: *light.attenuation.lock().unwrap(),
-                                            _dummy0: [0; 4],
-                                        };
+                                                    Matrix4::from_angle_x(Rad(rotation.x))
+                                                        * Matrix4::from_angle_y(Rad(rotation.y))
+                                                        * Matrix4::from_angle_z(Rad(rotation.z))
+                                                };
 
-                                        *light_count += 1;
+                                                lights_array[*light_count] = fragment::ty::Light {
+                                                    position: (light_transform_data
+                                                        .position
+                                                        .into()),
+                                                    rotation: rotation.into(),
+                                                    color: (*light.color.lock().unwrap()).into(),
+                                                    directional: *light.directional.lock().unwrap()
+                                                        as u32,
+                                                    intensity: *light.intensity.lock().unwrap(),
+                                                    cutoff: *light.cutoff.lock().unwrap(),
+                                                    outer_cutoff: *light
+                                                        .outer_cutoff
+                                                        .lock()
+                                                        .unwrap(),
+                                                    attenuation: *light.attenuation.lock().unwrap(),
+                                                    _dummy0: [0; 4],
+                                                };
+
+                                                *light_count += 1;
+                                            }
+                                        }
                                     }
 
                                     let uniform_data = fragment::ty::Data {

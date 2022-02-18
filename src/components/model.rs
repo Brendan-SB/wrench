@@ -180,6 +180,7 @@ impl Model {
 
                                     uniform_data
                                 }
+
                                 None => {
                                     let uniform_data = fragment::ty::Data {
                                         color: (*self.color.lock().unwrap()).into(),

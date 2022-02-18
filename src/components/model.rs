@@ -67,7 +67,7 @@ impl Model {
         let entity = { self.entity.lock().unwrap().clone() };
 
         if let Some(entity) = entity {
-            let camera = scene.camera.lock().unwrap();
+            let camera = { scene.camera.lock().unwrap().clone() };
             let camera_entity = { camera.clone().entity.lock().unwrap().clone() };
 
             if let Some(camera_entity) = camera_entity {

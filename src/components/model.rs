@@ -56,7 +56,6 @@ impl Model {
         pipeline: &GraphicsPipeline,
         suboptimal: bool,
         recreate_swapchain: &mut bool,
-        light_count: &mut usize,
         lights_array: &mut [fragment::ty::Light; 1024],
         lights: &Option<Vec<Arc<Light>>>,
         uniform_buffer: &CpuBufferPool<vertex::ty::Data>,
@@ -78,13 +77,9 @@ impl Model {
                     let transform_data = transform.calculate();
                     let camera_transform_data = camera_transform.calculate();
                     let uniform_buffer_subbuffer = {
-                        let rotation = {
-                            let rotation = transform_data.rotation;
-
-                            Matrix4::from_angle_x(Rad(rotation.x))
-                                * Matrix4::from_angle_y(Rad(rotation.y))
-                                * Matrix4::from_angle_z(Rad(rotation.z))
-                        };
+                        let rotation = Matrix4::from_angle_x(Rad(transform_data.rotation.x))
+                            * Matrix4::from_angle_y(Rad(transform_data.rotation.y))
+                            * Matrix4::from_angle_z(Rad(transform_data.rotation.z));
                         let aspect_ratio = dimensions[0] as f32 / dimensions[1] as f32;
                         let proj = cgmath::perspective(
                             Rad(*camera.fov.lock().unwrap()),
@@ -92,13 +87,10 @@ impl Model {
                             *camera.near.lock().unwrap(),
                             *camera.far.lock().unwrap(),
                         );
-                        let cam_rotation = {
-                            let rotation = camera_transform_data.rotation;
-
-                            Matrix4::from_angle_x(Rad(rotation.x))
-                                * Matrix4::from_angle_y(Rad(rotation.y))
-                                * Matrix4::from_angle_z(Rad(rotation.z))
-                        };
+                        let cam_rotation =
+                            Matrix4::from_angle_x(Rad(camera_transform_data.rotation.x))
+                                * Matrix4::from_angle_y(Rad(camera_transform_data.rotation.y))
+                                * Matrix4::from_angle_z(Rad(camera_transform_data.rotation.z));
                         let translation = Matrix4::from_translation(transform_data.position);
                         let cam_translation =
                             Matrix4::from_translation(camera_transform_data.position);
@@ -120,12 +112,11 @@ impl Model {
                     };
 
                     let frag_uniform_buffer_subbuffer = {
-                        let uniform_data = {
-                            let material = { self.material.lock().unwrap().clone() };
-
+                        let material = { self.material.lock().unwrap().clone() };
+                        let lights = {
                             match lights {
                                 Some(lights) => {
-                                    for light in &*lights {
+                                    for (i, light) in lights.iter().enumerate() {
                                         let light_entity = { light.entity.lock().unwrap().clone() };
 
                                         if let Some(light_entity) = light_entity {
@@ -134,15 +125,15 @@ impl Model {
                                             {
                                                 let light_transform_data =
                                                     light_transform.calculate();
-                                                let rotation = {
-                                                    let rotation = light_transform_data.rotation;
+                                                let rotation = Matrix4::from_angle_x(Rad(
+                                                    light_transform_data.rotation.x,
+                                                )) * Matrix4::from_angle_y(Rad(
+                                                    light_transform_data.rotation.y,
+                                                )) * Matrix4::from_angle_z(Rad(
+                                                    light_transform_data.rotation.z,
+                                                ));
 
-                                                    Matrix4::from_angle_x(Rad(rotation.x))
-                                                        * Matrix4::from_angle_y(Rad(rotation.y))
-                                                        * Matrix4::from_angle_z(Rad(rotation.z))
-                                                };
-
-                                                lights_array[*light_count] = fragment::ty::Light {
+                                                lights_array[i] = fragment::ty::Light {
                                                     position: (light_transform_data
                                                         .position
                                                         .into()),
@@ -159,45 +150,32 @@ impl Model {
                                                     attenuation: *light.attenuation.lock().unwrap(),
                                                     _dummy0: [0; 4],
                                                 };
-
-                                                *light_count += 1;
                                             }
                                         }
                                     }
 
-                                    let uniform_data = fragment::ty::Data {
-                                        color: (*self.color.lock().unwrap()).into(),
-                                        ambient: *material.ambient.lock().unwrap(),
-                                        diff_strength: *material.diff_strength.lock().unwrap(),
-                                        spec_strength: *material.spec_strength.lock().unwrap(),
-                                        spec_power: *material.spec_power.lock().unwrap(),
-                                        lights: fragment::ty::LightArray {
-                                            len: lights.len() as u32,
-                                            array: *lights_array,
-                                            _dummy0: [0; 12],
-                                        },
-                                    };
-
-                                    uniform_data
+                                    fragment::ty::LightArray {
+                                        len: lights.len() as u32,
+                                        array: *lights_array,
+                                        _dummy0: [0; 12],
+                                    }
                                 }
 
-                                None => {
-                                    let uniform_data = fragment::ty::Data {
-                                        color: (*self.color.lock().unwrap()).into(),
-                                        ambient: *material.ambient.lock().unwrap(),
-                                        diff_strength: *material.diff_strength.lock().unwrap(),
-                                        spec_strength: *material.spec_strength.lock().unwrap(),
-                                        spec_power: *material.spec_power.lock().unwrap(),
-                                        lights: fragment::ty::LightArray {
-                                            len: 0,
-                                            array: *lights_array,
-                                            _dummy0: [0; 12],
-                                        },
-                                    };
-
-                                    uniform_data
-                                }
+                                None => fragment::ty::LightArray {
+                                    len: 0 as u32,
+                                    array: *lights_array,
+                                    _dummy0: [0; 12],
+                                },
                             }
+                        };
+
+                        let uniform_data = fragment::ty::Data {
+                            color: (*self.color.lock().unwrap()).into(),
+                            ambient: *material.ambient.lock().unwrap(),
+                            diff_strength: *material.diff_strength.lock().unwrap(),
+                            spec_strength: *material.spec_strength.lock().unwrap(),
+                            spec_power: *material.spec_power.lock().unwrap(),
+                            lights,
                         };
 
                         Arc::new(frag_uniform_buffer.next(uniform_data).unwrap())

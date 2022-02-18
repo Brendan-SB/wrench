@@ -121,7 +121,7 @@ impl Model {
 
                     let frag_uniform_buffer_subbuffer = {
                         let uniform_data = {
-                            let material = self.material.lock().unwrap();
+                            let material = { self.material.lock().unwrap().clone() };
 
                             match lights {
                                 Some(lights) => {

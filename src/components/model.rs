@@ -94,14 +94,14 @@ impl Model {
                         let translation = Matrix4::from_translation(transform_data.position);
                         let cam_translation =
                             Matrix4::from_translation(camera_transform_data.position);
+                        let scale = Matrix4::from_nonuniform_scale(
+                            transform_data.scale.x,
+                            transform_data.scale.y,
+                            transform_data.scale.z,
+                        );
                         let uniform_data = vertex::ty::Data {
                             proj: proj.into(),
-                            scale: {
-                                let scale = transform_data.scale;
-
-                                Matrix4::from_nonuniform_scale(scale.x, scale.y, scale.z)
-                            }
-                            .into(),
+                            scale: scale.into(),
                             translation: translation.into(),
                             rotation: rotation.into(),
                             cam_translation: cam_translation.into(),

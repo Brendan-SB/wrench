@@ -1,8 +1,7 @@
 use crate::{
     assets::{Material, Mesh, Texture},
-    components::{Light, Transform},
+    components::{Camera, Light, Transform},
     ecs::{self, reexports::*, Component, Entity},
-    scene::Scene,
     shaders::{fragment, vertex},
     Matrix4, Rad, Vector4,
 };
@@ -25,6 +24,7 @@ pub struct Model {
     pub texture: Mutex<Arc<Texture>>,
     pub material: Mutex<Arc<Material>>,
     pub color: Mutex<Vector4<f32>>,
+    pub shadowed: Mutex<bool>,
 }
 
 impl Model {
@@ -34,6 +34,7 @@ impl Model {
         texture: Arc<Texture>,
         material: Arc<Material>,
         color: Vector4<f32>,
+        shadowed: bool,
     ) -> Arc<Self> {
         Arc::new(Self {
             id,
@@ -43,11 +44,13 @@ impl Model {
             texture: Mutex::new(texture),
             material: Mutex::new(material),
             color: Mutex::new(color),
+            shadowed: Mutex::new(shadowed),
         })
     }
 
     pub fn draw(
         &self,
+        camera: Arc<Camera>,
         device: Arc<Device>,
         builder: &mut AutoCommandBufferBuilder<
             PrimaryAutoCommandBuffer,
@@ -60,14 +63,12 @@ impl Model {
         lights: &Option<Vec<Arc<Light>>>,
         uniform_buffer: &CpuBufferPool<vertex::ty::Data>,
         frag_uniform_buffer: &CpuBufferPool<fragment::ty::Data>,
-        scene: &Scene,
         dimensions: &[u32; 2],
     ) {
         let entity = { self.entity.lock().unwrap().clone() };
 
         if let Some(entity) = entity {
-            let camera = { scene.camera.lock().unwrap().clone() };
-            let camera_entity = { camera.clone().entity.lock().unwrap().clone() };
+            let camera_entity = { camera.entity.lock().unwrap().clone() };
 
             if let Some(camera_entity) = camera_entity {
                 if let (Some(transform), Some(camera_transform)) = (
@@ -125,6 +126,9 @@ impl Model {
                                             {
                                                 let light_transform_data =
                                                     light_transform.calculate();
+                                                let position = Matrix4::from_translation(
+                                                    light_transform_data.position,
+                                                );
                                                 let rotation = Matrix4::from_angle_x(Rad(
                                                     light_transform_data.rotation.x,
                                                 )) * Matrix4::from_angle_y(Rad(
@@ -134,9 +138,7 @@ impl Model {
                                                 ));
 
                                                 lights_array[i] = fragment::ty::Light {
-                                                    position: (light_transform_data
-                                                        .position
-                                                        .into()),
+                                                    position: position.into(),
                                                     rotation: rotation.into(),
                                                     color: (*light.color.lock().unwrap()).into(),
                                                     directional: *light.directional.lock().unwrap()
@@ -148,7 +150,6 @@ impl Model {
                                                         .lock()
                                                         .unwrap(),
                                                     attenuation: *light.attenuation.lock().unwrap(),
-                                                    _dummy0: [0; 4],
                                                 };
                                             }
                                         }

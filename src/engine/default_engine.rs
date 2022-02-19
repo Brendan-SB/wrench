@@ -1,7 +1,7 @@
 use super::Engine;
 use crate::{
     assets::mesh::{Normal, Vertex},
-    components::{EventHandler, Light, Model},
+    components::{Camera, EventHandler, Light, Model},
     ecs::{self, Component, Entity},
     error::Error,
     scene::Scene,
@@ -221,6 +221,10 @@ impl DefaultEngine {
                 ) as Arc<dyn FramebufferAbstract + Send + Sync>
             })
             .collect::<Vec<Arc<dyn FramebufferAbstract + Send + Sync>>>();
+        let subpass = match Subpass::from(render_pass.clone(), 0) {
+            Some(subpass) => subpass,
+            None => return Err(Error::NoSubpass),
+        };
         let pipeline = Arc::new(
             GraphicsPipeline::start()
                 .vertex_input(
@@ -232,10 +236,7 @@ impl DefaultEngine {
                 .triangle_list()
                 .viewports_dynamic_scissors_irrelevant(1)
                 .fragment_shader(shaders.fragment.main_entry_point(), ())
-                .render_pass(match Subpass::from(render_pass.clone(), 0) {
-                    Some(subpass) => subpass,
-                    None => return Err(Error::NoSubpass),
-                })
+                .render_pass(subpass.clone())
                 .viewports(vec![Viewport {
                     origin: [0.0, 0.0],
                     dimensions: [dimensions[0] as f32, dimensions[1] as f32],
@@ -265,6 +266,7 @@ impl DefaultEngine {
 
     fn draw_entities(
         entities: Option<Arc<Vec<Arc<Entity>>>>,
+        camera: Arc<Camera>,
         device: Arc<Device>,
         builder: &mut AutoCommandBufferBuilder<
             PrimaryAutoCommandBuffer,
@@ -277,7 +279,6 @@ impl DefaultEngine {
         lights: &Option<Vec<Arc<Light>>>,
         uniform_buffer: &CpuBufferPool<vertex::ty::Data>,
         frag_uniform_buffer: &CpuBufferPool<fragment::ty::Data>,
-        scene: &Scene,
         dimensions: &[u32; 2],
     ) {
         if let Some(entities) = entities {
@@ -285,6 +286,7 @@ impl DefaultEngine {
                 if let Some(models) = entity.get_type::<Model>(ecs::id("model")) {
                     for model in &*models {
                         model.draw(
+                            camera.clone(),
                             device.clone(),
                             builder,
                             pipeline,
@@ -294,7 +296,6 @@ impl DefaultEngine {
                             lights,
                             uniform_buffer,
                             frag_uniform_buffer,
-                            scene,
                             dimensions,
                         );
                     }
@@ -302,6 +303,7 @@ impl DefaultEngine {
 
                 Self::draw_entities(
                     entity.get_type(ecs::id("entity")),
+                    camera.clone(),
                     device.clone(),
                     builder,
                     pipeline,
@@ -311,7 +313,6 @@ impl DefaultEngine {
                     lights,
                     uniform_buffer,
                     frag_uniform_buffer,
-                    scene,
                     dimensions,
                 );
             }
@@ -328,7 +329,7 @@ impl Engine for DefaultEngine {
         let frag_uniform_buffer =
             CpuBufferPool::<fragment::ty::Data>::new(self.device.clone(), BufferUsage::all());
         let mut lights_array = [fragment::ty::Light {
-            position: Vector3::zero().into(),
+            position: Matrix4::zero().into(),
             rotation: Matrix4::zero().into(),
             color: Vector3::zero().into(),
             directional: 0,
@@ -336,7 +337,6 @@ impl Engine for DefaultEngine {
             outer_cutoff: 0.0,
             intensity: 0.0,
             attenuation: 0.0,
-            _dummy0: [0; 4],
         }; 1024];
         let mut recreate_swapchain = false;
         let mut previous_frame_end = Some(sync::now(self.device.clone()).boxed());
@@ -410,13 +410,18 @@ impl Engine for DefaultEngine {
 
                             Err(e) => panic!("Failed to acquire next image: {:?}", e),
                         };
+
+                    let lights = scene.get_lights();
+                    let entities = scene.root.get_type::<Entity>(ecs::id("entity"));
+                    let camera = { scene.camera.lock().unwrap().clone() };
+                    let bg: [f32; 4] = (*scene.bg.lock().unwrap()).into();
+
                     let mut builder = AutoCommandBufferBuilder::primary(
                         self.device.clone(),
                         self.queue.family(),
                         CommandBufferUsage::OneTimeSubmit,
                     )
                     .unwrap();
-                    let bg: [f32; 4] = (*scene.bg.lock().unwrap()).into();
 
                     builder
                         .bind_pipeline_graphics(pipeline.clone())
@@ -428,17 +433,17 @@ impl Engine for DefaultEngine {
                         .unwrap();
 
                     Self::draw_entities(
-                        scene.root.get_type::<Entity>(ecs::id("entity")),
+                        entities,
+                        camera,
                         self.device.clone(),
                         &mut builder,
                         &*pipeline,
                         suboptimal,
                         &mut recreate_swapchain,
                         &mut lights_array,
-                        &scene.get_lights(),
+                        &lights,
                         &uniform_buffer,
                         &frag_uniform_buffer,
-                        &scene,
                         &dimensions,
                     );
 

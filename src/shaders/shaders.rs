@@ -1,4 +1,4 @@
-use super::{depth, fragment, vertex};
+use super::{fragment, vertex};
 use crate::error::Error;
 use std::sync::Arc;
 use vulkano::device::Device;

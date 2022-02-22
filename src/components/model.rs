@@ -24,7 +24,6 @@ pub struct Model {
     pub texture: Mutex<Arc<Texture>>,
     pub material: Mutex<Arc<Material>>,
     pub color: Mutex<Vector4<f32>>,
-    pub shadowed: Mutex<bool>,
 }
 
 impl Model {
@@ -34,7 +33,6 @@ impl Model {
         texture: Arc<Texture>,
         material: Arc<Material>,
         color: Vector4<f32>,
-        shadowed: bool,
     ) -> Arc<Self> {
         Arc::new(Self {
             id,
@@ -44,7 +42,6 @@ impl Model {
             texture: Mutex::new(texture),
             material: Mutex::new(material),
             color: Mutex::new(color),
-            shadowed: Mutex::new(shadowed),
         })
     }
 

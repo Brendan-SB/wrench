@@ -75,7 +75,7 @@ impl Entity {
                     .unwrap()
                     .iter()
                     .map(|c| c.clone().as_any().downcast::<C>().unwrap())
-                    .collect::<Vec<Arc<C>>>(),
+                    .collect(),
             )),
 
             None => None,
@@ -94,7 +94,7 @@ impl Entity {
                     .iter()
                     .filter(|c| *c.id() == *id)
                     .map(|c| c.clone().as_any().downcast::<C>().unwrap())
-                    .collect::<Vec<Arc<C>>>(),
+                    .collect(),
             )),
 
             None => None,

@@ -218,9 +218,9 @@ impl DefaultEngine {
                         .unwrap()
                         .build()
                         .unwrap(),
-                ) as Arc<dyn FramebufferAbstract + Send + Sync>
+                ) as _
             })
-            .collect::<Vec<Arc<dyn FramebufferAbstract + Send + Sync>>>();
+            .collect::<Vec<_>>();
         let subpass = match Subpass::from(render_pass.clone(), 0) {
             Some(subpass) => subpass,
             None => return Err(Error::NoSubpass),

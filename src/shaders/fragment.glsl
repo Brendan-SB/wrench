@@ -27,7 +27,6 @@ layout(location = 6) in mat3 cam_translation;
 layout(location = 0) out vec4 f_color;
 
 layout(set = 0, binding = 1) uniform sampler2D tex;
-layout(set = 0, binding = 2) uniform sampler2D depth_map;
 
 layout(set = 0, binding = 2) uniform Data {
     vec4 color;

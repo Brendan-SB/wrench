@@ -331,7 +331,6 @@ impl DefaultEngine {
         >,
         pipeline: &GraphicsPipeline,
         uniform_buffer: &CpuBufferPool<depth::vertex::ty::Data>,
-        dimensions: &[u32; 2],
     ) {
         if let Some(entities) = entities {
             for entity in &*entities {
@@ -344,7 +343,6 @@ impl DefaultEngine {
                             builder,
                             pipeline,
                             uniform_buffer,
-                            dimensions,
                         );
                     }
                 }
@@ -357,7 +355,6 @@ impl DefaultEngine {
                     builder,
                     pipeline,
                     uniform_buffer,
-                    dimensions,
                 );
             }
         }
@@ -557,7 +554,6 @@ impl Engine for DefaultEngine {
                                 &mut builder,
                                 &*depth_pipeline,
                                 &depth_uniform_buffer,
-                                &dimensions,
                             );
                         }
                     }

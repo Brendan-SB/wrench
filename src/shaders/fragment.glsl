@@ -21,7 +21,7 @@ struct LightArray {
 layout(location = 0) in vec3 normal;
 layout(location = 1) in vec2 tex_coord;
 layout(location = 2) in vec3 f_pos;
-layout(location = 3) in mat3 global_translation;
+layout(location = 3) in mat3 global_rotation;
 layout(location = 6) in mat3 cam_translation;
 
 layout(location = 0) out vec4 f_color;
@@ -77,7 +77,7 @@ vec4 light_calculations(vec3 norm, mat4 cam_offset, float shadow) {
 
 void main() {
     vec4 tex_color = texture(tex, tex_coord) * uniforms.color;
-    vec3 norm = normalize(global_translation * normal);
+    vec3 norm = normalize(global_rotation * normal);
 
     mat4 cam_offset = -mat4(cam_translation);
 

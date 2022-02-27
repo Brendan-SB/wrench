@@ -61,7 +61,6 @@ impl Model {
         >,
         pipeline: &GraphicsPipeline,
         uniform_buffer: &CpuBufferPool<depth::vertex::ty::Data>,
-        dimensions: &[u32; 2],
     ) {
         if *self.shadowed.lock().unwrap() {
             let entity = { self.entity.lock().unwrap().clone() };
@@ -80,13 +79,12 @@ impl Model {
                             let rotation = Matrix4::from_angle_x(Rad(transform_data.rotation.x))
                                 * Matrix4::from_angle_y(Rad(transform_data.rotation.y))
                                 * Matrix4::from_angle_z(Rad(transform_data.rotation.z));
-                            let aspect_ratio = dimensions[0] as f32 / dimensions[1] as f32;
-                            let proj = cgmath::perspective(
-                                Rad(*camera.fov.lock().unwrap()),
-                                aspect_ratio,
-                                *camera.near.lock().unwrap(),
-                                *camera.far.lock().unwrap(),
-                            );
+                            let proj = {
+                                let far = *camera.far.lock().unwrap() / 10.0;
+                                let near = -far;
+
+                                cgmath::ortho(near, far, near, far, near, far)
+                            };
                             let light_rotation =
                                 Matrix4::from_angle_x(Rad(light_transform_data.rotation.x))
                                     * Matrix4::from_angle_y(Rad(light_transform_data.rotation.y))

@@ -80,7 +80,7 @@ impl Model {
                                 * Matrix4::from_angle_y(Rad(transform_data.rotation.y))
                                 * Matrix4::from_angle_z(Rad(transform_data.rotation.z));
                             let proj = {
-                                let far = *camera.far.lock().unwrap() / 10.0;
+                                let far = *camera.far.lock().unwrap();
                                 let near = -far;
 
                                 cgmath::ortho(near, far, near, far, near, far)

@@ -13,21 +13,18 @@ layout(location = 6) out mat3 cam_translation;
 layout(set = 0, binding = 0) uniform Data {
     mat4 proj;
     mat4 scale;
-    mat4 translation;
-    mat4 rotation;
+    mat4 transform;
+    mat4 cam_transform;
     mat4 cam_translation;
-    mat4 cam_rotation;
 } uniforms;
 
 void main() {
-    mat4 transform = uniforms.rotation * uniforms.translation;
-    mat4 cam_transform = uniforms.cam_rotation * uniforms.cam_translation;
-    mat4 global_transform = inverse(transform);
-    mat4 world_view = cam_transform * global_transform;
+    mat4 global_transform = inverse(uniforms.transform);
+    mat4 world_view = uniforms.cam_transform * global_transform;
 
     v_normal = normal;
     tex_coords = uv;
-    f_pos = vec3(global_transform * vec4(position, 1.0));
+    f_pos = vec3(global_transform * uniforms.scale * vec4(position, 1.0));
     g_t = mat3(global_transform);
     cam_translation = mat3(uniforms.cam_translation);
     gl_Position = uniforms.proj * world_view * uniforms.scale * vec4(position, 1.0);

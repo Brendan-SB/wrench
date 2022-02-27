@@ -1,9 +1,5 @@
 pub mod default_engine;
+pub mod engine;
 
 pub use default_engine::DefaultEngine;
-
-use crate::error::Error;
-
-pub trait Engine {
-    fn init(self) -> Result<(), Error>;
-}
+pub use engine::Engine;

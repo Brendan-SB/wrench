@@ -55,6 +55,14 @@ impl Entity {
         }
     }
 
+    pub fn add_all<C>(self: &Arc<Self>, components: &Vec<&Arc<C>>)
+    where
+        C: Component, {
+            components.into_iter().for_each(|c| {
+                self.add(c);
+            });
+        }
+
     pub fn components(&self) -> HashMap<Arc<String>, Vec<Arc<dyn Component>>> {
         self.components
             .lock()
@@ -121,6 +129,7 @@ impl Entity {
         self.remove_by_id(component.tid(), component.id());
     }
 
+
     fn remove_from_target(target: &Mutex<Vec<Arc<dyn Component>>>, id: Arc<String>) -> bool {
         let mut target = target.lock().unwrap();
 
@@ -149,6 +158,14 @@ impl Entity {
             }
         }
     }
+
+    pub fn remove_all<C>(self: &Arc<Self>, components: &Vec<&Arc<C>>)
+    where
+        C: Component, {
+            components.into_iter().for_each(|c| {
+                self.remove(c);
+            });
+        }
 }
 
 impl Component for Entity {

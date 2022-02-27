@@ -7,7 +7,7 @@ use vulkano::{
     instance::InstanceCreationError,
     memory::DeviceMemoryAllocError,
     pipeline::GraphicsPipelineCreationError,
-    render_pass::RenderPassCreationError,
+    render_pass::{FramebufferCreationError, RenderPassCreationError},
     swapchain::SwapchainCreationError,
     OomError,
 };
@@ -15,12 +15,6 @@ use vulkano_win::CreationError;
 
 #[derive(Debug)]
 pub enum Error {
-    NoQueueFamily,
-    NoQueue,
-    NoPhysicalDevice,
-    NoShaderCompiler,
-    NoShaderCompileOptions,
-    NoSubpass,
     InstanceCreationError(InstanceCreationError),
     CreationError(CreationError),
     DeviceCreationError(DeviceCreationError),
@@ -34,6 +28,7 @@ pub enum Error {
     ImageCreationError(ImageCreationError),
     ImageViewCreationError(ImageViewCreationError),
     DecodingError(DecodingError),
+    FramebufferCreationError(FramebufferCreationError),
 }
 
 impl From<InstanceCreationError> for Error {
@@ -111,5 +106,11 @@ impl From<ImageViewCreationError> for Error {
 impl From<DecodingError> for Error {
     fn from(e: DecodingError) -> Self {
         Self::DecodingError(e)
+    }
+}
+
+impl From<FramebufferCreationError> for Error {
+    fn from(e: FramebufferCreationError) -> Self {
+        Self::FramebufferCreationError(e)
     }
 }

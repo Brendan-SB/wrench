@@ -5,7 +5,7 @@ use crate::{
     ecs::{self, Component, Entity},
     error::Error,
     scene::Scene,
-    shaders::{fragment, vertex, Shaders},
+    shaders::{depth, fragment, vertex, Shaders},
     Matrix4, Vector3, Zero,
 };
 use std::sync::{Arc, Mutex};
@@ -47,10 +47,12 @@ pub struct DefaultEngine {
     pub queue: Arc<Queue>,
     pub surface: Arc<Surface<Window>>,
     pub shaders: Arc<Shaders>,
+    pub depth_render_pass: Arc<RenderPass>,
     pub render_pass: Arc<RenderPass>,
+    pub depth_pipeline: Mutex<Arc<GraphicsPipeline>>,
     pub pipeline: Mutex<Arc<GraphicsPipeline>>,
     pub swapchain: Mutex<Arc<Swapchain<Window>>>,
-    pub framebuffers: Mutex<Vec<Arc<dyn FramebufferAbstract + Send + Sync>>>,
+    pub images: Mutex<Vec<Arc<ImageView<Arc<SwapchainImage<Window>>>>>>,
     pub scene: Mutex<Arc<Scene>>,
 }
 
@@ -70,17 +72,11 @@ impl DefaultEngine {
         scene: Arc<Scene>,
         sample_count: SampleCount,
     ) -> Result<Self, Error> {
-        let physical = match PhysicalDevice::from_index(&instance, physical_index) {
-            Some(physical) => physical,
-            None => return Err(Error::NoPhysicalDevice),
-        };
-        let queue_family = match physical
+        let physical = PhysicalDevice::from_index(&instance, physical_index).unwrap();
+        let queue_family = physical
             .queue_families()
             .find(|&q| q.supports_graphics() && surface.is_supported(q).unwrap_or(false))
-        {
-            Some(queue_family) => queue_family,
-            None => return Err(Error::NoQueueFamily),
-        };
+            .unwrap();
         let device_ext = DeviceExtensions {
             khr_swapchain: true,
             ..DeviceExtensions::none()
@@ -91,18 +87,14 @@ impl DefaultEngine {
             &device_ext,
             [(queue_family, 0.5)].iter().cloned(),
         )?;
-        let queue = match queues.next() {
-            Some(queue) => queue,
-            None => return Err(Error::NoQueue),
-        };
+        let queue = queues.next().unwrap();
         let shaders = Shaders::new(device.clone())?;
         let (swapchain, images) = {
             let caps = surface.capabilities(physical).unwrap();
             let alpha = caps.supported_composite_alpha.iter().next().unwrap();
             let format = caps.supported_formats[0].0;
             let dimensions: [u32; 2] = surface.window().inner_size().into();
-
-            Swapchain::start(device.clone(), surface.clone())
+            let (swapchain, images) = Swapchain::start(device.clone(), surface.clone())
                 .num_images(caps.min_image_count)
                 .composite_alpha(alpha)
                 .format(format)
@@ -112,8 +104,29 @@ impl DefaultEngine {
                 .transform(SurfaceTransform::Identity)
                 .clipped(true)
                 .color_space(ColorSpace::SrgbNonLinear)
-                .build()?
+                .build()?;
+            let images = images
+                .into_iter()
+                .map(|i| ImageView::new(i).unwrap())
+                .collect::<Vec<_>>();
+
+            (swapchain, images)
         };
+        let depth_render_pass = Arc::new(vulkano::single_pass_renderpass!(device.clone(),
+            attachments: {
+                shadow: {
+                    load: Clear,
+                    store: Store,
+                    format: swapchain.format(),
+                    samples: 1,
+                }
+            },
+            pass:
+            {
+                color: [shadow],
+                depth_stencil: {}
+            }
+        )?);
         let render_pass = Arc::new(vulkano::single_pass_renderpass!(device.clone(),
             attachments: {
                 intermediary: {
@@ -135,19 +148,19 @@ impl DefaultEngine {
                     samples: 1,
                 }
             },
-            pass: {
+            pass:
+            {
                 color: [intermediary],
                 depth_stencil: {depth},
-                resolve: [color],
+                resolve: [color]
             }
         )?);
-        let (pipeline, framebuffers) = Self::window_size_dependent_setup(
-            &images,
+        let (depth_pipeline, pipeline) = Self::window_size_dependent_setup(
+            depth_render_pass.clone(),
             render_pass.clone(),
             device.clone(),
             shaders.clone(),
             swapchain.clone(),
-            sample_count,
         )?;
 
         Ok(Self {
@@ -158,10 +171,12 @@ impl DefaultEngine {
             queue,
             surface,
             shaders,
+            depth_render_pass,
             render_pass,
+            depth_pipeline: Mutex::new(depth_pipeline),
             pipeline: Mutex::new(pipeline),
             swapchain: Mutex::new(swapchain),
-            framebuffers: Mutex::new(framebuffers),
+            images: Mutex::new(images),
             scene: Mutex::new(scene),
         })
     }
@@ -177,54 +192,33 @@ impl DefaultEngine {
     }
 
     fn window_size_dependent_setup(
-        images: &Vec<Arc<SwapchainImage<Window>>>,
+        depth_render_pass: Arc<RenderPass>,
         render_pass: Arc<RenderPass>,
         device: Arc<Device>,
         shaders: Arc<Shaders>,
         swapchain: Arc<Swapchain<Window>>,
-        sample_count: SampleCount,
-    ) -> Result<
-        (
-            Arc<GraphicsPipeline>,
-            Vec<Arc<dyn FramebufferAbstract + Send + Sync>>,
-        ),
-        Error,
-    > {
-        let dimensions = images[0].dimensions();
-        let intermediary = ImageView::new(AttachmentImage::transient_multisampled(
-            device.clone(),
-            dimensions,
-            sample_count,
-            swapchain.format(),
-        )?)?;
-        let depth_buffer = ImageView::new(AttachmentImage::transient_multisampled(
-            device.clone(),
-            dimensions,
-            sample_count,
-            Format::D16_UNORM,
-        )?)?;
-        let framebuffers = images
-            .iter()
-            .map(|image| {
-                let view = ImageView::new(image.clone()).unwrap();
-
-                Arc::new(
-                    Framebuffer::start(render_pass.clone())
-                        .add(intermediary.clone())
-                        .unwrap()
-                        .add(depth_buffer.clone())
-                        .unwrap()
-                        .add(view)
-                        .unwrap()
-                        .build()
-                        .unwrap(),
-                ) as _
-            })
-            .collect::<Vec<_>>();
-        let subpass = match Subpass::from(render_pass.clone(), 0) {
-            Some(subpass) => subpass,
-            None => return Err(Error::NoSubpass),
-        };
+    ) -> Result<(Arc<GraphicsPipeline>, Arc<GraphicsPipeline>), Error> {
+        let dimensions = swapchain.dimensions();
+        let depth_pipeline = Arc::new(
+            GraphicsPipeline::start()
+                .vertex_input(
+                    BuffersDefinition::new()
+                        .vertex::<Vertex>()
+                        .vertex::<Normal>(),
+                )
+                .vertex_shader(shaders.depth_vertex.main_entry_point(), ())
+                .triangle_list()
+                .viewports_dynamic_scissors_irrelevant(1)
+                .fragment_shader(shaders.depth_fragment.main_entry_point(), ())
+                .render_pass(Subpass::from(depth_render_pass.clone(), 0).unwrap())
+                .viewports(vec![Viewport {
+                    origin: [0.0, 0.0],
+                    dimensions: [dimensions[0] as f32, dimensions[1] as f32],
+                    depth_range: 1.0..0.0,
+                }])
+                .blend_alpha_blending()
+                .build(device.clone())?,
+        );
         let pipeline = Arc::new(
             GraphicsPipeline::start()
                 .vertex_input(
@@ -236,7 +230,7 @@ impl DefaultEngine {
                 .triangle_list()
                 .viewports_dynamic_scissors_irrelevant(1)
                 .fragment_shader(shaders.fragment.main_entry_point(), ())
-                .render_pass(subpass.clone())
+                .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
                 .viewports(vec![Viewport {
                     origin: [0.0, 0.0],
                     dimensions: [dimensions[0] as f32, dimensions[1] as f32],
@@ -247,7 +241,69 @@ impl DefaultEngine {
                 .build(device.clone())?,
         );
 
-        Ok((pipeline, framebuffers))
+        Ok((depth_pipeline, pipeline))
+    }
+
+    fn create_framebuffers(
+        device: Arc<Device>,
+        swapchain: Arc<Swapchain<Window>>,
+        depth_render_pass: Arc<RenderPass>,
+        render_pass: Arc<RenderPass>,
+        color: Arc<ImageView<Arc<SwapchainImage<Window>>>>,
+        sample_count: SampleCount,
+        dimensions: &[u32; 2],
+    ) -> Result<
+        (
+            Buffers,
+            Arc<dyn FramebufferAbstract + Send + Sync>,
+            Arc<dyn FramebufferAbstract + Send + Sync>,
+        ),
+        Error,
+    > {
+        let buffers = {
+            let usage = ImageUsage {
+                transient_attachment: true,
+                input_attachment: true,
+                color_attachment: true,
+                ..ImageUsage::none()
+            };
+            let intermediary = ImageView::new(AttachmentImage::multisampled_with_usage(
+                device.clone(),
+                *dimensions,
+                sample_count,
+                swapchain.format(),
+                usage,
+            )?)?;
+            let depth = ImageView::new(AttachmentImage::multisampled_with_usage(
+                device.clone(),
+                *dimensions,
+                sample_count,
+                Format::D16_UNORM,
+                usage,
+            )?)?;
+            let shadow_dimensions = [dimensions[0] * 2, dimensions[1] * 2];
+            let shadow = ImageView::new(AttachmentImage::sampled_input_attachment(
+                device.clone(),
+                shadow_dimensions,
+                swapchain.format(),
+            )?)?;
+
+            Buffers::new(shadow, intermediary, depth, color)
+        };
+        let depth_framebuffer = Arc::new(
+            Framebuffer::start(depth_render_pass.clone())
+                .add(buffers.shadow.clone())?
+                .build()?,
+        );
+        let framebuffer = Arc::new(
+            Framebuffer::start(render_pass.clone())
+                .add(buffers.intermediary.clone())?
+                .add(buffers.depth.clone())?
+                .add(buffers.color.clone())?
+                .build()?,
+        );
+
+        Ok((buffers, depth_framebuffer, framebuffer))
     }
 
     fn handle_events(entity: Arc<Entity>, event: &Event<()>) {
@@ -264,6 +320,49 @@ impl DefaultEngine {
         }
     }
 
+    fn draw_shadows(
+        entities: Option<Arc<Vec<Arc<Entity>>>>,
+        light: Arc<Light>,
+        camera: Arc<Camera>,
+        device: Arc<Device>,
+        builder: &mut AutoCommandBufferBuilder<
+            PrimaryAutoCommandBuffer,
+            StandardCommandPoolBuilder,
+        >,
+        pipeline: &GraphicsPipeline,
+        uniform_buffer: &CpuBufferPool<depth::vertex::ty::Data>,
+        dimensions: &[u32; 2],
+    ) {
+        if let Some(entities) = entities {
+            for entity in &*entities {
+                if let Some(models) = entity.get_type::<Model>(ecs::id("model")) {
+                    for model in &*models {
+                        model.draw_shadows(
+                            light.clone(),
+                            camera.clone(),
+                            device.clone(),
+                            builder,
+                            pipeline,
+                            uniform_buffer,
+                            dimensions,
+                        );
+                    }
+                }
+
+                Self::draw_shadows(
+                    entity.get_type(ecs::id("entity")),
+                    light.clone(),
+                    camera.clone(),
+                    device.clone(),
+                    builder,
+                    pipeline,
+                    uniform_buffer,
+                    dimensions,
+                );
+            }
+        }
+    }
+
     fn draw_entities(
         entities: Option<Arc<Vec<Arc<Entity>>>>,
         camera: Arc<Camera>,
@@ -273,12 +372,11 @@ impl DefaultEngine {
             StandardCommandPoolBuilder,
         >,
         pipeline: &GraphicsPipeline,
-        suboptimal: bool,
-        recreate_swapchain: &mut bool,
         lights_array: &mut [fragment::ty::Light; 1024],
         lights: &Option<Vec<Arc<Light>>>,
         uniform_buffer: &CpuBufferPool<vertex::ty::Data>,
         frag_uniform_buffer: &CpuBufferPool<fragment::ty::Data>,
+        shadow_buffer: Arc<ImageView<Arc<AttachmentImage>>>,
         dimensions: &[u32; 2],
     ) {
         if let Some(entities) = entities {
@@ -290,12 +388,11 @@ impl DefaultEngine {
                             device.clone(),
                             builder,
                             pipeline,
-                            suboptimal,
-                            recreate_swapchain,
                             lights_array,
                             lights,
                             uniform_buffer,
                             frag_uniform_buffer,
+                            shadow_buffer.clone(),
                             dimensions,
                         );
                     }
@@ -307,12 +404,11 @@ impl DefaultEngine {
                     device.clone(),
                     builder,
                     pipeline,
-                    suboptimal,
-                    recreate_swapchain,
                     lights_array,
                     lights,
                     uniform_buffer,
                     frag_uniform_buffer,
+                    shadow_buffer.clone(),
                     dimensions,
                 );
             }
@@ -328,6 +424,8 @@ impl Engine for DefaultEngine {
             CpuBufferPool::<vertex::ty::Data>::new(self.device.clone(), BufferUsage::all());
         let frag_uniform_buffer =
             CpuBufferPool::<fragment::ty::Data>::new(self.device.clone(), BufferUsage::all());
+        let depth_uniform_buffer =
+            CpuBufferPool::<depth::vertex::ty::Data>::new(self.device.clone(), BufferUsage::all());
         let mut lights_array = [fragment::ty::Light {
             position: Matrix4::zero().into(),
             rotation: Matrix4::zero().into(),
@@ -365,9 +463,10 @@ impl Engine for DefaultEngine {
                     previous_frame_end.as_mut().unwrap().cleanup_finished();
 
                     let dimensions: [u32; 2] = self.surface.window().inner_size().into();
+                    let mut depth_pipeline = self.depth_pipeline.lock().unwrap();
                     let mut pipeline = self.pipeline.lock().unwrap();
                     let mut swapchain = self.swapchain.lock().unwrap();
-                    let mut framebuffers = self.framebuffers.lock().unwrap();
+                    let mut images = self.images.lock().unwrap();
                     let scene = self.scene.lock().unwrap();
 
                     scene.root.update();
@@ -381,19 +480,22 @@ impl Engine for DefaultEngine {
                             };
 
                         *swapchain = new_swapchain;
+                        *images = new_images
+                            .into_iter()
+                            .map(|i| ImageView::new(i.clone()).unwrap())
+                            .collect::<Vec<_>>();
 
-                        let (new_pipeline, new_framebuffers) = Self::window_size_dependent_setup(
-                            &new_images,
+                        let (new_depth_pipeline, new_pipeline) = Self::window_size_dependent_setup(
+                            self.depth_render_pass.clone(),
                             self.render_pass.clone(),
                             self.device.clone(),
                             self.shaders.clone(),
                             swapchain.clone(),
-                            self.sample_count.clone(),
                         )
                         .unwrap();
 
+                        *depth_pipeline = new_depth_pipeline;
                         *pipeline = new_pipeline;
-                        *framebuffers = new_framebuffers;
 
                         recreate_swapchain = false;
                     }
@@ -411,11 +513,24 @@ impl Engine for DefaultEngine {
                             Err(e) => panic!("Failed to acquire next image: {:?}", e),
                         };
 
+                    if suboptimal {
+                        recreate_swapchain = true;
+                    }
+
                     let lights = scene.get_lights();
                     let entities = scene.root.get_type::<Entity>(ecs::id("entity"));
                     let camera = { scene.camera.lock().unwrap().clone() };
                     let bg: [f32; 4] = (*scene.bg.lock().unwrap()).into();
-
+                    let (buffers, depth_framebuffer, framebuffer) = Self::create_framebuffers(
+                        self.device.clone(),
+                        swapchain.clone(),
+                        self.depth_render_pass.clone(),
+                        self.render_pass.clone(),
+                        images[image_num].clone(),
+                        self.sample_count,
+                        &dimensions,
+                    )
+                    .unwrap();
                     let mut builder = AutoCommandBufferBuilder::primary(
                         self.device.clone(),
                         self.queue.family(),
@@ -424,9 +539,35 @@ impl Engine for DefaultEngine {
                     .unwrap();
 
                     builder
+                        .bind_pipeline_graphics(depth_pipeline.clone())
+                        .begin_render_pass(
+                            depth_framebuffer.clone(),
+                            SubpassContents::Inline,
+                            vec![[0.0_f32; 4].into()],
+                        )
+                        .unwrap();
+
+                    if let Some(lights) = &lights {
+                        for light in lights {
+                            Self::draw_shadows(
+                                entities.clone(),
+                                light.clone(),
+                                camera.clone(),
+                                self.device.clone(),
+                                &mut builder,
+                                &*depth_pipeline,
+                                &depth_uniform_buffer,
+                                &dimensions,
+                            );
+                        }
+                    }
+
+                    builder
+                        .end_render_pass()
+                        .unwrap()
                         .bind_pipeline_graphics(pipeline.clone())
                         .begin_render_pass(
-                            framebuffers[image_num].clone(),
+                            framebuffer.clone(),
                             SubpassContents::Inline,
                             vec![bg.into(), 1.0_f32.into(), [0.0_f32; 4].into()],
                         )
@@ -438,12 +579,11 @@ impl Engine for DefaultEngine {
                         self.device.clone(),
                         &mut builder,
                         &*pipeline,
-                        suboptimal,
-                        &mut recreate_swapchain,
                         &mut lights_array,
                         &lights,
                         &uniform_buffer,
                         &frag_uniform_buffer,
+                        buffers.shadow.clone(),
                         &dimensions,
                     );
 
@@ -480,5 +620,28 @@ impl Engine for DefaultEngine {
                 _ => {}
             }
         });
+    }
+}
+
+pub struct Buffers {
+    shadow: Arc<ImageView<Arc<AttachmentImage>>>,
+    intermediary: Arc<ImageView<Arc<AttachmentImage>>>,
+    depth: Arc<ImageView<Arc<AttachmentImage>>>,
+    color: Arc<ImageView<Arc<SwapchainImage<Window>>>>,
+}
+
+impl Buffers {
+    pub fn new(
+        shadow: Arc<ImageView<Arc<AttachmentImage>>>,
+        intermediary: Arc<ImageView<Arc<AttachmentImage>>>,
+        depth: Arc<ImageView<Arc<AttachmentImage>>>,
+        color: Arc<ImageView<Arc<SwapchainImage<Window>>>>,
+    ) -> Self {
+        Self {
+            shadow,
+            intermediary,
+            depth,
+            color,
+        }
     }
 }

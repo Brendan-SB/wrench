@@ -26,9 +26,10 @@ layout(location = 6) in mat3 cam_translation;
 
 layout(location = 0) out vec4 f_color;
 
-layout(set = 0, binding = 1) uniform sampler2D tex;
+layout(set = 1, binding = 0) uniform sampler2D tex;
+layout(set = 1, binding = 1) uniform sampler2D shadow_buffer;
 
-layout(set = 0, binding = 2) uniform Data {
+layout(set = 0, binding = 1) uniform Data {
     vec4 color;
     float ambient;
     float diff_strength;
@@ -37,15 +38,15 @@ layout(set = 0, binding = 2) uniform Data {
     LightArray lights;
 } uniforms;
 
-vec4 light_calculations(vec3 norm, mat4 cam_offset) {
-    vec4 brightness = vec4(uniforms.ambient);
+vec4 light_calculations(vec3 norm, mat4 cam_offset, float shadow) {
+    vec4 brightness = vec4(uniforms.ambient - shadow);
 
     for (uint i = 0; i < uniforms.lights.len; i++) {
         Light light = uniforms.lights.array[i];
 
         vec3 f_pos_dif = vec3((cam_offset * light.position)[3].xyz - f_pos);
         vec3 light_dir = normalize(f_pos_dif);
-        vec3 view_dir = normalize(f_pos);
+        vec3 view_dir = -normalize(f_pos);
 
         float dist = length(f_pos_dif);
         float attenuation = 1.0 / (light.attenuation * pow(dist, 2));
@@ -80,7 +81,9 @@ void main() {
 
     mat4 cam_offset = -mat4(cam_translation);
 
-    vec4 brightness = light_calculations(norm, cam_offset);
+    float shadow = texture(shadow_buffer, f_pos.xy).z;
+
+    vec4 brightness = light_calculations(norm, cam_offset, shadow);
 
     f_color = tex_color * vec4(brightness.xyz, 1.0);
 }

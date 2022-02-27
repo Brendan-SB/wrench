@@ -3,7 +3,7 @@ use crate::{
     components::{Camera, Light, Transform},
     ecs::{self, reexports::*, Component, Entity},
     shaders::{depth, fragment, vertex},
-    InnerSpace, Matrix4, Rad, Vector3, Vector4,
+    Matrix4, Rad, Vector4,
 };
 use std::sync::{Arc, Mutex};
 use vulkano::{
@@ -87,20 +87,10 @@ impl Model {
                                 *camera.near.lock().unwrap(),
                                 *camera.far.lock().unwrap(),
                             );
-                            let light_rotation = {
-                                let x = Vector3::new(transform_data.position.x, 0.0, 0.0);
-                                let y = Vector3::new(0.0, transform_data.position.y, 0.0);
-                                let z = Vector3::new(0.0, 0.0, transform_data.position.z);
-                                let light_x =
-                                    Vector3::new(light_transform_data.position.x, 0.0, 0.0);
-                                let light_y =
-                                    Vector3::new(0.0, light_transform_data.position.y, 0.0);
-                                let light_z = Vector3::new(0.0, 0.0, transform_data.position.z);
-
-                                Matrix4::from_angle_x(x.angle(light_x))
-                                    * Matrix4::from_angle_y(y.angle(light_y))
-                                    * Matrix4::from_angle_z(z.angle(light_z))
-                            };
+                            let light_rotation =
+                                Matrix4::from_angle_x(Rad(light_transform_data.rotation.x))
+                                    * Matrix4::from_angle_y(Rad(light_transform_data.rotation.y))
+                                    * Matrix4::from_angle_z(Rad(light_transform_data.rotation.z));
                             let translation = Matrix4::from_translation(transform_data.position);
                             let light_translation =
                                 Matrix4::from_translation(light_transform_data.position);

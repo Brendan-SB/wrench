@@ -24,7 +24,7 @@ void main() {
 
     v_normal = normal;
     tex_coords = uv;
-    f_pos = vec3(global_transform * vec4(position, 1.0));
+    f_pos = vec3(global_transform * uniforms.scale * vec4(position, 1.0));
     g_t = mat3(global_transform);
     cam_translation = mat3(uniforms.cam_translation);
     gl_Position = uniforms.proj * world_view * uniforms.scale * vec4(position, 1.0);

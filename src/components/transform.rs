@@ -39,10 +39,6 @@ impl Transform {
         })
     }
 
-    pub fn scale_1(id: Arc<String>, position: Vector3<f32>, rotation: Vector3<f32>) -> Arc<Self> {
-        Self::new(id, position, rotation, Vector3::new(1.0, 1.0, 1.0))
-    }
-
     fn calculate_inner(&self, data: &mut TransformData) {
         {
             let d = self.data.lock().unwrap();

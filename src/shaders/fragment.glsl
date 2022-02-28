@@ -38,13 +38,14 @@ layout(set = 0, binding = 1) uniform Data {
     LightArray lights;
 } uniforms;
 
-vec4 light_calculations(vec3 norm, mat4 cam_offset, float shadow) {
+vec4 light_calculations(vec3 norm, mat4 cam_offset) {
+    float shadow = texture(shadow_buffer, f_pos.xy).z;
     vec4 brightness = vec4(uniforms.ambient - shadow);
 
     for (uint i = 0; i < uniforms.lights.len; i++) {
         Light light = uniforms.lights.array[i];
 
-        vec3 f_pos_dif = vec3((cam_offset * light.position)[3].xyz - f_pos);
+        vec3 f_pos_dif = vec3((cam_offset * light.position * vec4(vec3(0.0), 1.0)).xyz - f_pos);
         vec3 light_dir = normalize(f_pos_dif);
         vec3 view_dir = -normalize(f_pos);
 
@@ -81,9 +82,7 @@ void main() {
 
     mat4 cam_offset = -mat4(cam_translation);
 
-    float shadow = texture(shadow_buffer, f_pos.xy).z;
-
-    vec4 brightness = light_calculations(norm, cam_offset, shadow);
+    vec4 brightness = light_calculations(norm, cam_offset);
 
     f_color = tex_color * vec4(brightness.xyz, 1.0);
 }

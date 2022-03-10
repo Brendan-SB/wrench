@@ -17,6 +17,7 @@ impl Texture {
         queue: Arc<Queue>,
         bytes: Vec<u8>,
         sampler: Arc<Sampler>,
+        format: Format,
     ) -> Result<Arc<Self>, Error> {
         let cursor = Cursor::new(bytes);
         let decoder = png::Decoder::new(cursor);
@@ -36,7 +37,7 @@ impl Texture {
             image_data.iter().cloned(),
             dimensions,
             MipmapsCount::Log2,
-            Format::R8G8B8A8_SRGB,
+            format,
             queue.clone(),
         )?;
         let image = ImageView::new(image)?;

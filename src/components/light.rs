@@ -4,17 +4,41 @@ use crate::{
 };
 use std::sync::{Arc, Mutex};
 
+pub struct LightData {
+    pub color: Vector3<f32>,
+    pub directional: bool,
+    pub intensity: f32,
+    pub cutoff: f32,
+    pub outer_cutoff: f32,
+    pub attenuation: f32,
+}
+
+impl LightData {
+    pub fn new(
+        color: Vector3<f32>,
+        directional: bool,
+        intensity: f32,
+        cutoff: f32,
+        outer_cutoff: f32,
+        attenuation: f32,
+    ) -> Self {
+        Self {
+            color,
+            directional,
+            intensity,
+            cutoff,
+            outer_cutoff,
+            attenuation,
+        }
+    }
+}
+
 #[derive(Component)]
 pub struct Light {
     pub id: Arc<String>,
     pub tid: Arc<String>,
     pub entity: Arc<Mutex<Option<Arc<Entity>>>>,
-    pub color: Mutex<Vector3<f32>>,
-    pub directional: Mutex<bool>,
-    pub intensity: Mutex<f32>,
-    pub cutoff: Mutex<f32>,
-    pub outer_cutoff: Mutex<f32>,
-    pub attenuation: Mutex<f32>,
+    pub data: Mutex<LightData>,
 }
 
 impl Light {
@@ -31,12 +55,14 @@ impl Light {
             id,
             tid: ecs::id("light"),
             entity: ecs::entity(None),
-            color: Mutex::new(color),
-            directional: Mutex::new(directional),
-            intensity: Mutex::new(intensity),
-            cutoff: Mutex::new(cutoff),
-            outer_cutoff: Mutex::new(outer_cutoff),
-            attenuation: Mutex::new(attenuation),
+            data: Mutex::new(LightData::new(
+                color,
+                directional,
+                intensity,
+                cutoff,
+                outer_cutoff,
+                attenuation,
+            )),
         })
     }
 }

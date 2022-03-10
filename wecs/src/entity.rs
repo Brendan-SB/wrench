@@ -55,7 +55,7 @@ impl Entity {
         }
     }
 
-    pub fn add_all<C>(self: &Arc<Self>, components: &Vec<&Arc<C>>)
+    pub fn add_all<C>(self: &Arc<Self>, components: &[&Arc<C>])
     where
         C: Component, {
             components.into_iter().for_each(|c| {
@@ -159,7 +159,7 @@ impl Entity {
         }
     }
 
-    pub fn remove_all<C>(self: &Arc<Self>, components: &Vec<&Arc<C>>)
+    pub fn remove_all<C>(self: &Arc<Self>, components: &[&Arc<C>])
     where
         C: Component, {
             components.into_iter().for_each(|c| {

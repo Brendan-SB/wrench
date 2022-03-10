@@ -1,13 +1,23 @@
 use crate::ecs::{self, reexports::*};
 
+pub struct CameraData {
+    pub fov: f32,
+    pub near: f32,
+    pub far: f32,
+}
+
+impl CameraData {
+    pub fn new(fov: f32, near: f32, far: f32) -> Self {
+        Self { fov, near, far }
+    }
+}
+
 #[derive(Component)]
 pub struct Camera {
     pub id: Arc<String>,
     pub tid: Arc<String>,
     pub entity: Arc<Mutex<Option<Arc<Entity>>>>,
-    pub fov: Mutex<f32>,
-    pub near: Mutex<f32>,
-    pub far: Mutex<f32>,
+    pub data: Mutex<CameraData>,
 }
 
 impl Camera {
@@ -16,9 +26,7 @@ impl Camera {
             id,
             tid: ecs::id("camera"),
             entity: ecs::entity(None),
-            fov: Mutex::new(fov),
-            near: Mutex::new(near),
-            far: Mutex::new(far),
+            data: Mutex::new(CameraData::new(fov, near, far)),
         })
     }
 }

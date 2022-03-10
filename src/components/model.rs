@@ -17,16 +17,38 @@ use vulkano::{
     sampler::{BorderColor, Filter, MipmapMode, Sampler, SamplerAddressMode},
 };
 
+pub struct ModelData {
+    mesh: Arc<Mesh>,
+    texture: Arc<Texture>,
+    material: Arc<Material>,
+    color: Vector4<f32>,
+    shadowed: bool,
+}
+
+impl ModelData {
+    pub fn new(
+        mesh: Arc<Mesh>,
+        texture: Arc<Texture>,
+        material: Arc<Material>,
+        color: Vector4<f32>,
+        shadowed: bool,
+    ) -> Self {
+        Self {
+            mesh,
+            texture,
+            material,
+            color,
+            shadowed,
+        }
+    }
+}
+
 #[derive(Component)]
 pub struct Model {
     pub id: Arc<String>,
     pub tid: Arc<String>,
     pub entity: Arc<Mutex<Option<Arc<Entity>>>>,
-    pub mesh: Mutex<Arc<Mesh>>,
-    pub texture: Mutex<Arc<Texture>>,
-    pub material: Mutex<Arc<Material>>,
-    pub color: Mutex<Vector4<f32>>,
-    pub shadowed: Mutex<bool>,
+    pub data: Mutex<ModelData>,
 }
 
 impl Model {
@@ -42,11 +64,7 @@ impl Model {
             id,
             tid: ecs::id("model"),
             entity: ecs::entity(None),
-            mesh: Mutex::new(mesh),
-            texture: Mutex::new(texture),
-            material: Mutex::new(material),
-            color: Mutex::new(color),
-            shadowed: Mutex::new(shadowed),
+            data: Mutex::new(ModelData::new(mesh, texture, material, color, shadowed)),
         })
     }
 
@@ -62,7 +80,9 @@ impl Model {
         pipeline: &GraphicsPipeline,
         uniform_buffer: &CpuBufferPool<depth::vertex::ty::Data>,
     ) {
-        if *self.shadowed.lock().unwrap() {
+        let data = self.data.lock().unwrap();
+
+        if data.shadowed {
             let entity = { self.entity.lock().unwrap().clone() };
 
             if let Some(entity) = entity {
@@ -80,10 +100,16 @@ impl Model {
                                 * Matrix4::from_angle_y(Rad(transform_data.rotation.y))
                                 * Matrix4::from_angle_z(Rad(transform_data.rotation.z));
                             let proj = {
-                                let far = *camera.far.lock().unwrap();
-                                let near = -far;
+                                let camera_data = camera.data.lock().unwrap();
 
-                                cgmath::ortho(near, far, near, far, near, far)
+                                cgmath::ortho(
+                                    camera_data.near,
+                                    camera_data.far,
+                                    camera_data.near,
+                                    camera_data.far,
+                                    camera_data.near,
+                                    camera_data.far,
+                                )
                             };
                             let light_rotation =
                                 Matrix4::from_angle_x(Rad(light_transform_data.rotation.x))
@@ -113,26 +139,25 @@ impl Model {
                         set_builder.add_buffer(uniform_buffer_subbuffer).unwrap();
 
                         let set = Arc::new(set_builder.build().unwrap());
-                        let mesh = self.mesh.lock().unwrap();
                         let normal_buffer = CpuAccessibleBuffer::from_iter(
                             device.clone(),
                             BufferUsage::all(),
                             false,
-                            mesh.normals.iter().cloned(),
+                            data.mesh.normals.iter().cloned(),
                         )
                         .unwrap();
                         let vertex_buffer = CpuAccessibleBuffer::from_iter(
                             device.clone(),
                             BufferUsage::all(),
                             false,
-                            mesh.vertices.iter().cloned(),
+                            data.mesh.vertices.iter().cloned(),
                         )
                         .unwrap();
                         let index_buffer = CpuAccessibleBuffer::from_iter(
                             device.clone(),
                             BufferUsage::all(),
                             false,
-                            mesh.indices.iter().cloned(),
+                            data.mesh.indices.iter().cloned(),
                         )
                         .unwrap();
 
@@ -169,6 +194,7 @@ impl Model {
         shadow_buffer: Arc<ImageView<Arc<AttachmentImage>>>,
         dimensions: &[u32; 2],
     ) {
+        let data = self.data.lock().unwrap();
         let entity = { self.entity.lock().unwrap().clone() };
 
         if let Some(entity) = entity {
@@ -186,12 +212,16 @@ impl Model {
                             * Matrix4::from_angle_y(Rad(transform_data.rotation.y))
                             * Matrix4::from_angle_z(Rad(transform_data.rotation.z));
                         let aspect_ratio = dimensions[0] as f32 / dimensions[1] as f32;
-                        let proj = cgmath::perspective(
-                            Rad(*camera.fov.lock().unwrap()),
-                            aspect_ratio,
-                            *camera.near.lock().unwrap(),
-                            *camera.far.lock().unwrap(),
-                        );
+                        let proj = {
+                            let camera_data = camera.data.lock().unwrap();
+
+                            cgmath::perspective(
+                                Rad(camera_data.fov),
+                                aspect_ratio,
+                                camera_data.near,
+                                camera_data.far,
+                            )
+                        };
                         let cam_rotation =
                             Matrix4::from_angle_x(Rad(camera_transform_data.rotation.x))
                                 * Matrix4::from_angle_y(Rad(camera_transform_data.rotation.y))
@@ -216,7 +246,6 @@ impl Model {
                     };
 
                     let frag_uniform_buffer_subbuffer = {
-                        let material = { self.material.lock().unwrap().clone() };
                         let lights = {
                             match lights {
                                 Some(lights) => {
@@ -239,20 +268,17 @@ impl Model {
                                                 )) * Matrix4::from_angle_z(Rad(
                                                     light_transform_data.rotation.z,
                                                 ));
+                                                let light_data = light.data.lock().unwrap();
 
                                                 lights_array[i] = fragment::ty::Light {
                                                     position: position.into(),
                                                     rotation: rotation.into(),
-                                                    color: (*light.color.lock().unwrap()).into(),
-                                                    directional: *light.directional.lock().unwrap()
-                                                        as u32,
-                                                    intensity: *light.intensity.lock().unwrap(),
-                                                    cutoff: *light.cutoff.lock().unwrap(),
-                                                    outer_cutoff: *light
-                                                        .outer_cutoff
-                                                        .lock()
-                                                        .unwrap(),
-                                                    attenuation: *light.attenuation.lock().unwrap(),
+                                                    color: light_data.color.into(),
+                                                    directional: light_data.directional as u32,
+                                                    intensity: light_data.intensity,
+                                                    cutoff: light_data.cutoff,
+                                                    outer_cutoff: light_data.outer_cutoff,
+                                                    attenuation: light_data.attenuation,
                                                 };
                                             }
                                         }
@@ -274,11 +300,11 @@ impl Model {
                         };
 
                         let uniform_data = fragment::ty::Data {
-                            color: (*self.color.lock().unwrap()).into(),
-                            ambient: *material.ambient.lock().unwrap(),
-                            diff_strength: *material.diff_strength.lock().unwrap(),
-                            spec_strength: *material.spec_strength.lock().unwrap(),
-                            spec_power: *material.spec_power.lock().unwrap(),
+                            color: data.color.into(),
+                            ambient: data.material.ambient,
+                            diff_strength: data.material.diff_strength,
+                            spec_strength: data.material.spec_strength,
+                            spec_power: data.material.spec_power,
                             lights,
                         };
 
@@ -287,7 +313,6 @@ impl Model {
                     let descriptor_set_layouts = pipeline.layout().descriptor_set_layouts();
                     let set_layout = descriptor_set_layouts.get(0).unwrap();
                     let mut set_builder = PersistentDescriptorSet::start(set_layout.clone());
-                    let texture = self.texture.lock().unwrap();
 
                     set_builder
                         .add_buffer(uniform_buffer_subbuffer)
@@ -314,32 +339,31 @@ impl Model {
                     .unwrap();
 
                     set_builder
-                        .add_sampled_image(texture.image.clone(), texture.sampler.clone())
+                        .add_sampled_image(data.texture.image.clone(), data.texture.sampler.clone())
                         .unwrap()
                         .add_sampled_image(shadow_buffer, sampler)
                         .unwrap();
 
                     let image_set = Arc::new(set_builder.build().unwrap());
-                    let mesh = self.mesh.lock().unwrap();
                     let normal_buffer = CpuAccessibleBuffer::from_iter(
                         device.clone(),
                         BufferUsage::all(),
                         false,
-                        mesh.normals.iter().cloned(),
+                        data.mesh.normals.iter().cloned(),
                     )
                     .unwrap();
                     let vertex_buffer = CpuAccessibleBuffer::from_iter(
                         device.clone(),
                         BufferUsage::all(),
                         false,
-                        mesh.vertices.iter().cloned(),
+                        data.mesh.vertices.iter().cloned(),
                     )
                     .unwrap();
                     let index_buffer = CpuAccessibleBuffer::from_iter(
                         device.clone(),
                         BufferUsage::all(),
                         false,
-                        mesh.indices.iter().cloned(),
+                        data.mesh.indices.iter().cloned(),
                     )
                     .unwrap();
 

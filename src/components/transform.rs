@@ -10,6 +10,16 @@ pub struct TransformData {
     pub scale: Vector3<f32>,
 }
 
+impl TransformData {
+    pub fn new(position: Vector3<f32>, rotation: Vector3<f32>, scale: Vector3<f32>) -> Self {
+        Self {
+            position,
+            rotation,
+            scale,
+        }
+    }
+}
+
 #[derive(Component)]
 pub struct Transform {
     pub id: Arc<String>,
@@ -62,11 +72,7 @@ impl Transform {
     }
 
     pub fn calculate(&self) -> TransformData {
-        let mut data = TransformData {
-            position: Vector3::zero(),
-            rotation: Vector3::zero(),
-            scale: Vector3::zero(),
-        };
+        let mut data = TransformData::new(Vector3::zero(), Vector3::zero(), Vector3::zero());
 
         self.calculate_inner(&mut data);
 

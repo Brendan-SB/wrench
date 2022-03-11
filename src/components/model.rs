@@ -103,11 +103,11 @@ impl Model {
                                 let camera_data = camera.data.lock().unwrap();
 
                                 cgmath::ortho(
-                                    camera_data.near,
+                                    -camera_data.far,
                                     camera_data.far,
-                                    camera_data.near,
+                                    -camera_data.far,
                                     camera_data.far,
-                                    camera_data.near,
+                                    -camera_data.far,
                                     camera_data.far,
                                 )
                             };
@@ -126,7 +126,7 @@ impl Model {
                             let uniform_data = depth::vertex::ty::Data {
                                 proj: proj.into(),
                                 scale: scale.into(),
-                                transform: (rotation * translation).into(),
+                                transform: (translation * rotation).into(),
                                 cam_transform: (light_rotation * light_translation).into(),
                             };
 

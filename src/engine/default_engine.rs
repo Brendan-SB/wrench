@@ -6,7 +6,7 @@ use crate::{
     error::Error,
     scene::Scene,
     shaders::{depth, fragment, vertex, Shaders},
-    Matrix4, Vector3, Zero,
+    Matrix4, SquareMatrix, Vector3, Zero,
 };
 use std::sync::{Arc, Mutex};
 use vulkano::{
@@ -424,8 +424,8 @@ impl Engine for DefaultEngine {
         let depth_uniform_buffer =
             CpuBufferPool::<depth::vertex::ty::Data>::new(self.device.clone(), BufferUsage::all());
         let mut lights_array = [fragment::ty::Light {
-            position: Matrix4::zero().into(),
-            rotation: Matrix4::zero().into(),
+            position: Matrix4::identity().into(),
+            rotation: Matrix4::identity().into(),
             color: Vector3::zero().into(),
             directional: 0,
             cutoff: 0.0,

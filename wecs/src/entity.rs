@@ -26,16 +26,15 @@ impl Entity {
     where
         C: Component,
     {
-        let e = component.entity();
-        let entity = {
-            e.lock().unwrap().clone()
-        };
+        {
+            let entity = component.entity().lock().unwrap().clone();
 
-        if let Some(entity) = entity {
-            entity.remove(&component);
+            if let Some(entity) = &entity {
+                entity.remove(&component);
+            }
         }
 
-        *e.lock().unwrap() = Some(self.clone());
+        *component.entity().lock().unwrap() = Some(self.clone());
 
         let mut components = self.components.lock().unwrap();
 

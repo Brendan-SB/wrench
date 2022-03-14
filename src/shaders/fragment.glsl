@@ -76,7 +76,7 @@ vec4 light_calculations(vec3 norm, mat4 cam_offset) {
         float diff = max(dot(norm, light_dir), 0.0) * uniforms.diff_strength;
         float spec = pow(max(dot(view_dir, reflect_dir), 0.0), uniforms.spec_power) * uniforms.spec_strength;
 
-        brightness += (diff + spec - shadow) * light.intensity * vec4(light.color, 1.0) * attenuation * edge_softness;
+        brightness += (diff + spec) * light.intensity * vec4(light.color, 1.0) * attenuation * edge_softness - shadow;
     }
 
     return brightness;

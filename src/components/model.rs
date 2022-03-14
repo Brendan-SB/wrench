@@ -7,7 +7,7 @@ use crate::{
 };
 use std::sync::{Arc, Mutex};
 use vulkano::{
-    buffer::{cpu_pool::CpuBufferPool, BufferUsage, CpuAccessibleBuffer, TypedBufferAccess},
+    buffer::{cpu_pool::CpuBufferPool, TypedBufferAccess},
     command_buffer::PrimaryAutoCommandBuffer,
     command_buffer::{pool::standard::StandardCommandPoolBuilder, AutoCommandBufferBuilder},
     descriptor_set::persistent::PersistentDescriptorSet,
@@ -72,7 +72,6 @@ impl Model {
         &self,
         light: Arc<Light>,
         camera: Arc<Camera>,
-        device: Arc<Device>,
         builder: &mut AutoCommandBufferBuilder<
             PrimaryAutoCommandBuffer,
             StandardCommandPoolBuilder,
@@ -139,27 +138,6 @@ impl Model {
                         set_builder.add_buffer(uniform_buffer_subbuffer).unwrap();
 
                         let set = Arc::new(set_builder.build().unwrap());
-                        let normal_buffer = CpuAccessibleBuffer::from_iter(
-                            device.clone(),
-                            BufferUsage::all(),
-                            false,
-                            data.mesh.normals.iter().cloned(),
-                        )
-                        .unwrap();
-                        let vertex_buffer = CpuAccessibleBuffer::from_iter(
-                            device.clone(),
-                            BufferUsage::all(),
-                            false,
-                            data.mesh.vertices.iter().cloned(),
-                        )
-                        .unwrap();
-                        let index_buffer = CpuAccessibleBuffer::from_iter(
-                            device.clone(),
-                            BufferUsage::all(),
-                            false,
-                            data.mesh.indices.iter().cloned(),
-                        )
-                        .unwrap();
 
                         builder
                             .bind_descriptor_sets(
@@ -168,9 +146,12 @@ impl Model {
                                 0,
                                 set.clone(),
                             )
-                            .bind_vertex_buffers(0, (vertex_buffer.clone(), normal_buffer.clone()))
-                            .bind_index_buffer(index_buffer.clone())
-                            .draw_indexed(index_buffer.len() as u32, 1, 0, 0, 0)
+                            .bind_vertex_buffers(
+                                0,
+                                (data.mesh.vertices.clone(), data.mesh.normals.clone()),
+                            )
+                            .bind_index_buffer(data.mesh.indices.clone())
+                            .draw_indexed(data.mesh.indices.len() as u32, 1, 0, 0, 0)
                             .unwrap();
                     }
                 }
@@ -345,27 +326,6 @@ impl Model {
                         .unwrap();
 
                     let image_set = Arc::new(set_builder.build().unwrap());
-                    let normal_buffer = CpuAccessibleBuffer::from_iter(
-                        device.clone(),
-                        BufferUsage::all(),
-                        false,
-                        data.mesh.normals.iter().cloned(),
-                    )
-                    .unwrap();
-                    let vertex_buffer = CpuAccessibleBuffer::from_iter(
-                        device.clone(),
-                        BufferUsage::all(),
-                        false,
-                        data.mesh.vertices.iter().cloned(),
-                    )
-                    .unwrap();
-                    let index_buffer = CpuAccessibleBuffer::from_iter(
-                        device.clone(),
-                        BufferUsage::all(),
-                        false,
-                        data.mesh.indices.iter().cloned(),
-                    )
-                    .unwrap();
 
                     builder
                         .bind_descriptor_sets(
@@ -374,9 +334,12 @@ impl Model {
                             0,
                             vec![set.clone(), image_set.clone()],
                         )
-                        .bind_vertex_buffers(0, (vertex_buffer.clone(), normal_buffer.clone()))
-                        .bind_index_buffer(index_buffer.clone())
-                        .draw_indexed(index_buffer.len() as u32, 1, 0, 0, 0)
+                        .bind_vertex_buffers(
+                            0,
+                            (data.mesh.vertices.clone(), data.mesh.normals.clone()),
+                        )
+                        .bind_index_buffer(data.mesh.indices.clone())
+                        .draw_indexed(data.mesh.indices.len() as u32, 1, 0, 0, 0)
                         .unwrap();
                 }
             }

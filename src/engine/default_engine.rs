@@ -324,7 +324,6 @@ impl DefaultEngine {
         entities: Option<Arc<Vec<Arc<Entity>>>>,
         light: Arc<Light>,
         camera: Arc<Camera>,
-        device: Arc<Device>,
         builder: &mut AutoCommandBufferBuilder<
             PrimaryAutoCommandBuffer,
             StandardCommandPoolBuilder,
@@ -339,7 +338,6 @@ impl DefaultEngine {
                         model.draw_shadows(
                             light.clone(),
                             camera.clone(),
-                            device.clone(),
                             builder,
                             pipeline,
                             uniform_buffer,
@@ -351,7 +349,6 @@ impl DefaultEngine {
                     entity.get_type(ecs::id("entity")),
                     light.clone(),
                     camera.clone(),
-                    device.clone(),
                     builder,
                     pipeline,
                     uniform_buffer,
@@ -550,7 +547,6 @@ impl Engine for DefaultEngine {
                                 entities.clone(),
                                 light.clone(),
                                 camera.clone(),
-                                self.device.clone(),
                                 &mut builder,
                                 &*depth_pipeline,
                                 &depth_uniform_buffer,

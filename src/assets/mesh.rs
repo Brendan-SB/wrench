@@ -1,6 +1,10 @@
 use crate::{error::Error, InnerSpace, Vector3, Zero};
 use obj::TexturedVertex;
 use std::{io::BufRead, ops::Deref, sync::Arc};
+use vulkano::{
+    buffer::{BufferUsage, CpuAccessibleBuffer},
+    device::Device,
+};
 
 #[derive(Default, Copy, Clone)]
 pub struct Vertex {
@@ -41,13 +45,39 @@ where
 vulkano::impl_vertex!(Normal, normal);
 
 pub struct Mesh {
-    pub vertices: Vec<Vertex>,
-    pub indices: Vec<u32>,
-    pub normals: Vec<Normal>,
+    pub vertices: Arc<CpuAccessibleBuffer<[Vertex]>>,
+    pub indices: Arc<CpuAccessibleBuffer<[u32]>>,
+    pub normals: Arc<CpuAccessibleBuffer<[Normal]>>,
 }
 
 impl Mesh {
-    pub fn new(vertices: Vec<Vertex>, indices: Vec<u32>, normals: Vec<Normal>) -> Arc<Self> {
+    pub fn new(
+        device: Arc<Device>,
+        vertices: Vec<Vertex>,
+        indices: Vec<u32>,
+        normals: Vec<Normal>,
+    ) -> Arc<Self> {
+        let normals = CpuAccessibleBuffer::from_iter(
+            device.clone(),
+            BufferUsage::all(),
+            false,
+            normals.iter().cloned(),
+        )
+        .unwrap();
+        let vertices = CpuAccessibleBuffer::from_iter(
+            device.clone(),
+            BufferUsage::all(),
+            false,
+            vertices.iter().cloned(),
+        )
+        .unwrap();
+        let indices = CpuAccessibleBuffer::from_iter(
+            device.clone(),
+            BufferUsage::all(),
+            false,
+            indices.iter().cloned(),
+        )
+        .unwrap();
         Arc::new(Self {
             vertices,
             indices,
@@ -55,7 +85,7 @@ impl Mesh {
         })
     }
 
-    pub fn from_obj<R>(reader: R) -> Result<Arc<Self>, Error>
+    pub fn from_obj<R>(device: Arc<Device>, reader: R) -> Result<Arc<Self>, Error>
     where
         R: BufRead,
     {
@@ -73,6 +103,6 @@ impl Mesh {
             });
         }
 
-        Ok(Self::new(vertices, obj.indices, normals))
+        Ok(Self::new(device, vertices, obj.indices, normals))
     }
 }

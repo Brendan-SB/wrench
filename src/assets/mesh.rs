@@ -1,6 +1,6 @@
 use crate::{error::Error, InnerSpace, Vector3, Zero};
 use obj::TexturedVertex;
-use std::{io::BufRead, ops::Deref, sync::Arc};
+use std::{io::BufRead, sync::Arc};
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},
     device::Device,
@@ -19,15 +19,12 @@ pub struct Normal {
     pub normal: [f32; 3],
 }
 
-impl<V> From<V> for Normal
-where
-    V: Deref<Target = Vec<Vertex>>,
-{
-    fn from(vertices: V) -> Self {
+impl From<&[Vertex]> for Normal {
+    fn from(vertices: &[Vertex]) -> Self {
         let mut normal = Vector3::zero();
 
         for (i, current) in vertices.iter().enumerate() {
-            let next = vertices[(i + 1) % (vertices.len() - 1)];
+            let next = &vertices[(i + 1) % (vertices.len() - 1)];
 
             normal += Vector3::new(
                 (current.position[1] - next.position[1]) * (current.position[2] + next.position[2]),

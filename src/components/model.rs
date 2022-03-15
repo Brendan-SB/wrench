@@ -18,11 +18,11 @@ use vulkano::{
 };
 
 pub struct ModelData {
-    mesh: Arc<Mesh>,
-    texture: Arc<Texture>,
-    material: Arc<Material>,
-    color: Vector4<f32>,
-    shadowed: bool,
+    pub mesh: Arc<Mesh>,
+    pub texture: Arc<Texture>,
+    pub material: Arc<Material>,
+    pub color: Vector4<f32>,
+    pub shadowed: bool,
 }
 
 impl ModelData {

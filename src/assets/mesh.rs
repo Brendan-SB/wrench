@@ -1,4 +1,4 @@
-use crate::{error::Error, InnerSpace, Vector3, Zero};
+use crate::error::Error;
 use obj::TexturedVertex;
 use std::{io::BufRead, sync::Arc};
 use vulkano::{
@@ -17,26 +17,6 @@ vulkano::impl_vertex!(Vertex, position, uv);
 #[derive(Default, Copy, Clone)]
 pub struct Normal {
     pub normal: [f32; 3],
-}
-
-impl From<&[Vertex]> for Normal {
-    fn from(vertices: &[Vertex]) -> Self {
-        let mut normal = Vector3::zero();
-
-        for (i, current) in vertices.iter().enumerate() {
-            let next = &vertices[(i + 1) % (vertices.len() - 1)];
-
-            normal += Vector3::new(
-                (current.position[1] - next.position[1]) * (current.position[2] + next.position[2]),
-                (current.position[2] - next.position[2]) * (current.position[0] + next.position[0]),
-                (current.position[0] - next.position[0]) * (current.position[1] + next.position[1]),
-            );
-        }
-
-        Normal {
-            normal: normal.normalize().into(),
-        }
-    }
 }
 
 vulkano::impl_vertex!(Normal, normal);

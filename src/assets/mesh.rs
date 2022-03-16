@@ -30,36 +30,34 @@ pub struct Mesh {
 impl Mesh {
     pub fn new(
         device: Arc<Device>,
-        vertices: Vec<Vertex>,
-        indices: Vec<u32>,
-        normals: Vec<Normal>,
-    ) -> Arc<Self> {
+        vertices: &[Vertex],
+        indices: &[u32],
+        normals: &[Normal],
+    ) -> Result<Arc<Self>, Error> {
         let normals = CpuAccessibleBuffer::from_iter(
             device.clone(),
             BufferUsage::all(),
             false,
             normals.iter().cloned(),
-        )
-        .unwrap();
+        )?;
         let vertices = CpuAccessibleBuffer::from_iter(
             device.clone(),
             BufferUsage::all(),
             false,
             vertices.iter().cloned(),
-        )
-        .unwrap();
+        )?;
         let indices = CpuAccessibleBuffer::from_iter(
             device.clone(),
             BufferUsage::all(),
             false,
             indices.iter().cloned(),
-        )
-        .unwrap();
-        Arc::new(Self {
+        )?;
+
+        Ok(Arc::new(Self {
             vertices,
             indices,
             normals,
-        })
+        }))
     }
 
     pub fn from_obj<R>(device: Arc<Device>, reader: R) -> Result<Arc<Self>, Error>
@@ -80,6 +78,6 @@ impl Mesh {
             });
         }
 
-        Ok(Self::new(device, vertices, obj.indices, normals))
+        Ok(Self::new(device, &vertices, &obj.indices, &normals))
     }
 }

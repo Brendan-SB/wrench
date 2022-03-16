@@ -78,6 +78,6 @@ impl Mesh {
             });
         }
 
-        Ok(Self::new(device, &vertices, &obj.indices, &normals))
+        Self::new(device, &vertices, &obj.indices, &normals)
     }
 }

@@ -21,9 +21,8 @@ struct LightArray {
 layout(location = 0) in vec3 normal;
 layout(location = 1) in vec2 tex_coord;
 layout(location = 2) in vec4 f_pos;
-layout(location = 3) in vec4 pos;
-layout(location = 4) in mat3 global_rotation;
-layout(location = 7) in mat3 cam_translation;
+layout(location = 3) in mat3 global_rotation;
+layout(location = 6) in mat3 cam_translation;
 
 layout(location = 0) out vec4 f_color;
 
@@ -45,7 +44,7 @@ vec4 light_calculations(vec3 norm, mat4 cam_offset) {
     for (uint i = 0; i < uniforms.lights.len; i++) {
         Light light = uniforms.lights.array[i];
 
-        vec4 pos_light_space = inverse(light.position) * pos * 0.5 + 0.5;
+        vec4 pos_light_space = inverse(light.position) * f_pos * 0.5 + 0.5;
 
         vec3 shadow_coord = pos_light_space.xyz / pos_light_space.w;
 

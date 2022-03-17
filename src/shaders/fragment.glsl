@@ -20,8 +20,8 @@ struct LightArray {
 
 layout(location = 0) in vec3 normal;
 layout(location = 1) in vec2 tex_coord;
-layout(location = 2) in vec4 pos;
-layout(location = 3) in vec3 f_pos;
+layout(location = 2) in vec4 f_pos;
+layout(location = 3) in vec4 pos;
 layout(location = 4) in mat3 global_rotation;
 layout(location = 7) in mat3 cam_translation;
 
@@ -51,9 +51,9 @@ vec4 light_calculations(vec3 norm, mat4 cam_offset) {
 
         float shadow = texture(shadow_buffer, shadow_coord.xy * 0.5).z;
 
-        vec3 f_pos_dif = vec3((cam_offset * light.position * vec4(vec3(0.0), 1.0)).xyz - f_pos);
+        vec3 f_pos_dif = vec3(((cam_offset * light.position * vec4(vec3(0.0), 1.0)) - f_pos).xyz);
         vec3 light_dir = normalize(f_pos_dif);
-        vec3 view_dir = -normalize(f_pos);
+        vec3 view_dir = -normalize(vec3(f_pos));
 
         float dist = length(f_pos_dif);
         float attenuation = 1.0 / (light.attenuation * pow(dist, 2));

@@ -125,7 +125,7 @@ impl Model {
                             let uniform_data = depth::vertex::ty::Data {
                                 proj: proj.into(),
                                 scale: scale.into(),
-                                transform: (translation * rotation).into(),
+                                transform: (rotation * translation).into(),
                                 cam_transform: (light_rotation * light_translation).into(),
                             };
 

@@ -22,7 +22,6 @@ layout(location = 0) in vec3 normal;
 layout(location = 1) in vec2 tex_coord;
 layout(location = 2) in vec4 f_pos;
 layout(location = 3) in mat3 global_rotation;
-layout(location = 6) in mat3 cam_translation;
 
 layout(location = 0) out vec4 f_color;
 
@@ -38,7 +37,7 @@ layout(set = 0, binding = 1) uniform Data {
     LightArray lights;
 } uniforms;
 
-vec4 light_calculations(vec3 norm, mat4 cam_offset) {
+vec4 light_calculations(vec3 norm) {
     vec4 brightness = vec4(uniforms.ambient);
 
     for (uint i = 0; i < uniforms.lights.len; i++) {
@@ -50,7 +49,7 @@ vec4 light_calculations(vec3 norm, mat4 cam_offset) {
 
         float shadow = texture(shadow_buffer, shadow_coord.xy * 0.5).z;
 
-        vec3 f_pos_dif = vec3(((cam_offset * light.position * vec4(vec3(0.0), 1.0)) - f_pos).xyz);
+        vec3 f_pos_dif = vec3((-(light.position * vec4(vec3(0.0), 1.0)) - f_pos).xyz);
         vec3 light_dir = normalize(f_pos_dif);
         vec3 view_dir = -normalize(vec3(f_pos));
 
@@ -59,7 +58,7 @@ vec4 light_calculations(vec3 norm, mat4 cam_offset) {
         float edge_softness = 1.0;
 
         if (light.directional) {
-          float theta = dot(light_dir, -normalize(vec3(cam_offset * inverse(light.rotation) * vec4(0.0, 0.0, 1.0, 1.0))));
+          float theta = dot(light_dir, -normalize(vec3(inverse(light.rotation) * vec4(0.0, 0.0, 1.0, 1.0))));
 
           if (theta > light.outer_cutoff) {
             float epsilon = light.cutoff - light.outer_cutoff;
@@ -83,11 +82,10 @@ vec4 light_calculations(vec3 norm, mat4 cam_offset) {
 
 void main() {
     vec4 tex_color = texture(tex, tex_coord) * uniforms.color;
+
     vec3 norm = normalize(global_rotation * normal);
 
-    mat4 cam_offset = -mat4(cam_translation);
-
-    vec4 brightness = light_calculations(norm, cam_offset);
+    vec4 brightness = light_calculations(norm);
 
     f_color = tex_color * vec4(brightness.xyz, 1.0);
 }

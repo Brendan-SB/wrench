@@ -219,7 +219,6 @@ impl Model {
                             proj: proj.into(),
                             scale: scale.into(),
                             transform: (rotation * translation).into(),
-                            cam_translation: cam_translation.into(),
                             cam_transform: (cam_rotation * cam_translation).into(),
                         };
 

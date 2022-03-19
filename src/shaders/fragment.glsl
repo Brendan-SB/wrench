@@ -58,7 +58,7 @@ vec4 light_calculations(vec3 norm) {
         float edge_softness = 1.0;
 
         if (light.directional) {
-          float theta = dot(light_dir, -normalize(vec3(inverse(light.rotation) * vec4(0.0, 0.0, 1.0, 1.0))));
+          float theta = dot(light_dir, -normalize(-vec3(inverse(light.rotation) * vec4(0.0, 0.0, 1.0, 1.0))));
 
           if (theta > light.outer_cutoff) {
             float epsilon = light.cutoff - light.outer_cutoff;

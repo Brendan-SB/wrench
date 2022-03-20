@@ -3,7 +3,7 @@ use crate::{
     components::{Camera, Light, Transform},
     ecs::{self, reexports::*, Component, Entity},
     shaders::{depth, fragment, vertex},
-    Matrix4, Rad, Vector4,
+    EuclideanSpace, Matrix4, Point3, Rad, Vector3, Vector4, Zero,
 };
 use std::sync::{Arc, Mutex};
 use vulkano::{
@@ -122,8 +122,13 @@ impl Model {
                                 transform_data.scale.y,
                                 transform_data.scale.z,
                             );
+                            let look_at = Matrix4::look_at_lh(
+                                Point3::from_vec(light_transform_data.position),
+                                Point3::from_vec(Vector3::zero()),
+                                Vector3::new(0.0, 1.0, 0.0),
+                            );
                             let uniform_data = depth::vertex::ty::Data {
-                                proj: proj.into(),
+                                proj: (proj * look_at).into(),
                                 scale: scale.into(),
                                 transform: (rotation * translation).into(),
                                 cam_transform: (light_rotation * light_translation).into(),

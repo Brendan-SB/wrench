@@ -128,9 +128,9 @@ impl Model {
                                 Vector3::new(0.0, 1.0, 0.0),
                             );
                             let uniform_data = depth::vertex::ty::Data {
-                                proj: (proj * look_at).into(),
+                                proj: proj.into(),
                                 scale: scale.into(),
-                                transform: (rotation * translation).into(),
+                                transform: (look_at * rotation * translation).into(),
                                 cam_transform: (light_rotation * light_translation).into(),
                             };
 

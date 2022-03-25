@@ -39,6 +39,13 @@ use winit::{
     window::Window,
 };
 
+pub struct InitializedDefaultEngine {
+    pub lights_array: [fragment::ty::Light; 1024],
+    pub uniform_buffer: CpuBufferPool<vertex::ty::Data>,
+    pub frag_uniform_buffer: CpuBufferPool<fragment::ty::Data>,
+    pub depth_uniform_buffer: CpuBufferPool<depth::vertex::ty::Data>,
+}
+
 pub struct DefaultEngine {
     pub physical_index: usize,
     pub sample_count: SampleCount,
@@ -322,6 +329,7 @@ impl DefaultEngine {
     }
 
     fn draw_shadows(
+        initialized_engine: &InitializedDefaultEngine,
         entities: Option<Arc<Vec<Arc<Entity>>>>,
         light: Arc<Light>,
         camera: Arc<Camera>,
@@ -330,35 +338,35 @@ impl DefaultEngine {
             StandardCommandPoolBuilder,
         >,
         pipeline: &GraphicsPipeline,
-        uniform_buffer: &CpuBufferPool<depth::vertex::ty::Data>,
     ) {
         if let Some(entities) = entities {
             for entity in &*entities {
                 if let Some(models) = entity.get_type::<Model>(ecs::id("model")) {
                     for model in &*models {
                         model.draw_shadows(
+                            initialized_engine,
                             light.clone(),
                             camera.clone(),
                             builder,
                             pipeline,
-                            uniform_buffer,
                         );
                     }
                 }
 
                 Self::draw_shadows(
+                    initialized_engine,
                     entity.get_type(ecs::id("entity")),
                     light.clone(),
                     camera.clone(),
                     builder,
                     pipeline,
-                    uniform_buffer,
                 );
             }
         }
     }
 
     fn draw_entities(
+        initialized_engine: &mut InitializedDefaultEngine,
         entities: Option<Arc<Vec<Arc<Entity>>>>,
         camera: Arc<Camera>,
         device: Arc<Device>,
@@ -367,10 +375,7 @@ impl DefaultEngine {
             StandardCommandPoolBuilder,
         >,
         pipeline: &GraphicsPipeline,
-        lights_array: &mut [fragment::ty::Light; 1024],
         lights: &Option<Vec<Arc<Light>>>,
-        uniform_buffer: &CpuBufferPool<vertex::ty::Data>,
-        frag_uniform_buffer: &CpuBufferPool<fragment::ty::Data>,
         shadow_buffer: Arc<ImageView<Arc<AttachmentImage>>>,
         dimensions: &[u32; 2],
     ) {
@@ -379,14 +384,12 @@ impl DefaultEngine {
                 if let Some(models) = entity.get_type::<Model>(ecs::id("model")) {
                     for model in &*models {
                         model.draw(
+                            initialized_engine,
                             camera.clone(),
                             device.clone(),
                             builder,
                             pipeline,
-                            lights_array,
                             lights,
-                            uniform_buffer,
-                            frag_uniform_buffer,
                             shadow_buffer.clone(),
                             dimensions,
                         );
@@ -394,15 +397,13 @@ impl DefaultEngine {
                 }
 
                 Self::draw_entities(
+                    initialized_engine,
                     entity.get_type(ecs::id("entity")),
                     camera.clone(),
                     device.clone(),
                     builder,
                     pipeline,
-                    lights_array,
                     lights,
-                    uniform_buffer,
-                    frag_uniform_buffer,
                     shadow_buffer.clone(),
                     dimensions,
                 );
@@ -421,7 +422,7 @@ impl Engine for DefaultEngine {
             CpuBufferPool::<fragment::ty::Data>::new(self.device.clone(), BufferUsage::all());
         let depth_uniform_buffer =
             CpuBufferPool::<depth::vertex::ty::Data>::new(self.device.clone(), BufferUsage::all());
-        let mut lights_array = [fragment::ty::Light {
+        let lights_array = [fragment::ty::Light {
             position: Matrix4::identity().into(),
             rotation: Matrix4::identity().into(),
             color: Vector3::zero().into(),
@@ -431,6 +432,13 @@ impl Engine for DefaultEngine {
             intensity: 0.0,
             attenuation: 0.0,
         }; 1024];
+        let mut initialized_engine = InitializedDefaultEngine {
+            uniform_buffer,
+            frag_uniform_buffer,
+            depth_uniform_buffer,
+            lights_array,
+        };
+
         let mut recreate_swapchain = false;
         let mut previous_frame_end = Some(sync::now(self.device.clone()).boxed());
 
@@ -545,12 +553,12 @@ impl Engine for DefaultEngine {
                     if let Some(lights) = &lights {
                         for light in lights {
                             Self::draw_shadows(
+                                &initialized_engine,
                                 entities.clone(),
                                 light.clone(),
                                 camera.clone(),
                                 &mut builder,
                                 &*depth_pipeline,
-                                &depth_uniform_buffer,
                             );
                         }
                     }
@@ -567,15 +575,13 @@ impl Engine for DefaultEngine {
                         .unwrap();
 
                     Self::draw_entities(
+                        &mut initialized_engine,
                         entities,
                         camera,
                         self.device.clone(),
                         &mut builder,
                         &*pipeline,
-                        &mut lights_array,
                         &lights,
-                        &uniform_buffer,
-                        &frag_uniform_buffer,
                         buffers.shadow.clone(),
                         &dimensions,
                     );

@@ -2,12 +2,13 @@ use crate::{
     assets::{Material, Mesh, Texture},
     components::{Camera, Light, Transform},
     ecs::{self, reexports::*, Component, Entity},
+    engine::default_engine::InitializedDefaultEngine,
     shaders::{depth, fragment, vertex},
     EuclideanSpace, Matrix4, Point3, Rad, Vector3, Vector4, Zero,
 };
 use std::sync::{Arc, Mutex};
 use vulkano::{
-    buffer::{cpu_pool::CpuBufferPool, TypedBufferAccess},
+    buffer::TypedBufferAccess,
     command_buffer::PrimaryAutoCommandBuffer,
     command_buffer::{pool::standard::StandardCommandPoolBuilder, AutoCommandBufferBuilder},
     descriptor_set::persistent::PersistentDescriptorSet,
@@ -70,6 +71,7 @@ impl Model {
 
     pub fn draw_shadows(
         &self,
+        initialized_engine: &InitializedDefaultEngine,
         light: Arc<Light>,
         camera: Arc<Camera>,
         builder: &mut AutoCommandBufferBuilder<
@@ -77,7 +79,6 @@ impl Model {
             StandardCommandPoolBuilder,
         >,
         pipeline: &GraphicsPipeline,
-        uniform_buffer: &CpuBufferPool<depth::vertex::ty::Data>,
     ) {
         let data = self.data.lock().unwrap();
 
@@ -134,7 +135,12 @@ impl Model {
                                 cam_transform: (light_rotation * light_translation).into(),
                             };
 
-                            Arc::new(uniform_buffer.next(uniform_data).unwrap())
+                            Arc::new(
+                                initialized_engine
+                                    .depth_uniform_buffer
+                                    .next(uniform_data)
+                                    .unwrap(),
+                            )
                         };
 
                         let set_layout = pipeline.layout().descriptor_set_layouts().get(0).unwrap();
@@ -166,6 +172,7 @@ impl Model {
 
     pub fn draw(
         &self,
+        initialized_engine: &mut InitializedDefaultEngine,
         camera: Arc<Camera>,
         device: Arc<Device>,
         builder: &mut AutoCommandBufferBuilder<
@@ -173,10 +180,7 @@ impl Model {
             StandardCommandPoolBuilder,
         >,
         pipeline: &GraphicsPipeline,
-        lights_array: &mut [fragment::ty::Light; 1024],
         lights: &Option<Vec<Arc<Light>>>,
-        uniform_buffer: &CpuBufferPool<vertex::ty::Data>,
-        frag_uniform_buffer: &CpuBufferPool<fragment::ty::Data>,
         shadow_buffer: Arc<ImageView<Arc<AttachmentImage>>>,
         dimensions: &[u32; 2],
     ) {
@@ -227,7 +231,12 @@ impl Model {
                             cam_transform: (cam_rotation * cam_translation).into(),
                         };
 
-                        Arc::new(uniform_buffer.next(uniform_data).unwrap())
+                        Arc::new(
+                            initialized_engine
+                                .uniform_buffer
+                                .next(uniform_data)
+                                .unwrap(),
+                        )
                     };
 
                     let frag_uniform_buffer_subbuffer = {
@@ -255,30 +264,31 @@ impl Model {
                                                 ));
                                                 let light_data = light.data.lock().unwrap();
 
-                                                lights_array[i] = fragment::ty::Light {
-                                                    position: position.into(),
-                                                    rotation: rotation.into(),
-                                                    color: light_data.color.into(),
-                                                    directional: light_data.directional as u32,
-                                                    intensity: light_data.intensity,
-                                                    cutoff: light_data.cutoff,
-                                                    outer_cutoff: light_data.outer_cutoff,
-                                                    attenuation: light_data.attenuation,
-                                                };
+                                                initialized_engine.lights_array[i] =
+                                                    fragment::ty::Light {
+                                                        position: position.into(),
+                                                        rotation: rotation.into(),
+                                                        color: light_data.color.into(),
+                                                        directional: light_data.directional as u32,
+                                                        intensity: light_data.intensity,
+                                                        cutoff: light_data.cutoff,
+                                                        outer_cutoff: light_data.outer_cutoff,
+                                                        attenuation: light_data.attenuation,
+                                                    };
                                             }
                                         }
                                     }
 
                                     fragment::ty::LightArray {
                                         len: lights.len() as u32,
-                                        array: *lights_array,
+                                        array: initialized_engine.lights_array,
                                         _dummy0: [0; 12],
                                     }
                                 }
 
                                 None => fragment::ty::LightArray {
                                     len: 0 as u32,
-                                    array: *lights_array,
+                                    array: initialized_engine.lights_array,
                                     _dummy0: [0; 12],
                                 },
                             }
@@ -293,7 +303,12 @@ impl Model {
                             lights,
                         };
 
-                        Arc::new(frag_uniform_buffer.next(uniform_data).unwrap())
+                        Arc::new(
+                            initialized_engine
+                                .frag_uniform_buffer
+                                .next(uniform_data)
+                                .unwrap(),
+                        )
                     };
                     let descriptor_set_layouts = pipeline.layout().descriptor_set_layouts();
                     let set_layout = descriptor_set_layouts.get(0).unwrap();

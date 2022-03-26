@@ -170,18 +170,6 @@ impl Entity {
             self.remove(c);
         });
     }
-
-    pub fn get_from(entity: &Arc<Entity>, id: Arc<String>) -> Option<Arc<Self>> {
-        entity.get::<Entity>(ecs::id("entity"), id)
-    }
-
-    pub fn get_first_from(entity: &Arc<Entity>) -> Option<Arc<Self>> {
-        entity.get_first::<Entity>(ecs::id("entity"))
-    }
-
-    pub fn get_type_from(entity: &Arc<Entity>) -> Option<Arc<Vec<Arc<Self>>>> {
-        entity.get_type::<Entity>(ecs::id("entity"))
-    }
 }
 
 impl Component for Entity {

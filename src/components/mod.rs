@@ -4,8 +4,8 @@ pub mod light;
 pub mod model;
 pub mod transform;
 
-pub use camera::{Camera, CameraData};
-pub use event_handler::EventHandler;
-pub use light::{Light, LightData};
-pub use model::{Model, ModelData};
-pub use transform::Transform;
+pub use camera::{Camera, CameraData, CAMERA_ID};
+pub use event_handler::{EventHandler, EVENT_HANDLER_ID};
+pub use light::{Light, LightData, LIGHT_ID};
+pub use model::{Model, ModelData, MODEL_ID};
+pub use transform::{Transform, TransformData, TRANSFORM_ID};

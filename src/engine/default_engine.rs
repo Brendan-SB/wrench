@@ -1,8 +1,8 @@
 use super::Engine;
 use crate::{
     assets::mesh::{Normal, Vertex},
-    components::{Camera, EventHandler, Light, Model},
-    ecs::{self, Component, Entity},
+    components::{Camera, EventHandler, Light, Model, EVENT_HANDLER_ID, MODEL_ID},
+    ecs::{self, Component, Entity, ENTITY_ID},
     error::Error,
     scene::Scene,
     shaders::{depth, fragment, vertex, Shaders},
@@ -331,13 +331,13 @@ impl DefaultEngine {
     }
 
     fn handle_events(entity: Arc<Entity>, event: &Event<()>) {
-        if let Some(event_handlers) = entity.get_type::<EventHandler>(ecs::id("event handler")) {
+        if let Some(event_handlers) = entity.get_type::<EventHandler>(ecs::id(EVENT_HANDLER_ID)) {
             for event_handler in &*event_handlers {
                 event_handler.handle(event);
             }
         }
 
-        if let Some(entities) = entity.get_type::<Entity>(ecs::id("entity")) {
+        if let Some(entities) = entity.get_type::<Entity>(ecs::id(ENTITY_ID)) {
             for entity in &*entities {
                 Self::handle_events(entity.clone(), event);
             }
@@ -357,7 +357,7 @@ impl DefaultEngine {
     ) {
         if let Some(entities) = entities {
             for entity in &*entities {
-                if let Some(models) = entity.get_type::<Model>(ecs::id("model")) {
+                if let Some(models) = entity.get_type::<Model>(ecs::id(MODEL_ID)) {
                     for model in &*models {
                         model.draw_shadows(
                             initialized_engine,
@@ -371,7 +371,7 @@ impl DefaultEngine {
 
                 Self::draw_shadows(
                     initialized_engine,
-                    entity.get_type(ecs::id("entity")),
+                    entity.get_type(ecs::id(ENTITY_ID)),
                     light.clone(),
                     camera.clone(),
                     builder,
@@ -397,7 +397,7 @@ impl DefaultEngine {
     ) {
         if let Some(entities) = entities {
             for entity in &*entities {
-                if let Some(models) = entity.get_type::<Model>(ecs::id("model")) {
+                if let Some(models) = entity.get_type::<Model>(ecs::id(MODEL_ID)) {
                     for model in &*models {
                         model.draw(
                             initialized_engine,
@@ -414,7 +414,7 @@ impl DefaultEngine {
 
                 Self::draw_entities(
                     initialized_engine,
-                    entity.get_type(ecs::id("entity")),
+                    entity.get_type(ecs::id(ENTITY_ID)),
                     camera.clone(),
                     device.clone(),
                     builder,
@@ -537,7 +537,7 @@ impl Engine for DefaultEngine {
                     }
 
                     let lights = scene.get_lights();
-                    let entities = scene.root.get_type::<Entity>(ecs::id("entity"));
+                    let entities = scene.root.get_type::<Entity>(ecs::id(ENTITY_ID));
                     let camera = { scene.camera.read().unwrap().clone() };
                     let bg: [f32; 4] = (*scene.bg.read().unwrap()).into();
                     let (buffers, depth_framebuffer, framebuffer) = Self::create_framebuffers(

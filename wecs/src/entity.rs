@@ -5,6 +5,8 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+pub const ENTITY_ID: &str = "entity";
+
 pub struct Entity {
     pub id: Arc<String>,
     pub tid: Arc<String>,
@@ -16,7 +18,7 @@ impl Entity {
     pub fn new(id: Arc<String>) -> Arc<Self> {
         Arc::new(Self {
             id,
-            tid: ecs::id("entity"),
+            tid: ecs::id(ENTITY_ID),
             entity: ecs::entity(None),
             components: Arc::new(RwLock::new(HashMap::new())),
         })

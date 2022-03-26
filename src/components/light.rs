@@ -3,6 +3,8 @@ use crate::{
     Vector3,
 };
 
+pub const LIGHT_ID: &str = "light";
+
 pub struct LightData {
     pub color: Vector3<f32>,
     pub directional: bool,
@@ -52,7 +54,7 @@ impl Light {
     ) -> Arc<Self> {
         Arc::new(Self {
             id,
-            tid: ecs::id("light"),
+            tid: ecs::id(LIGHT_ID),
             entity: ecs::entity(None),
             data: RwLock::new(LightData::new(
                 color,

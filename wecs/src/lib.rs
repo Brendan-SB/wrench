@@ -2,7 +2,7 @@ pub mod component;
 pub mod entity;
 
 pub use component::Component;
-pub use entity::Entity;
+pub use entity::{Entity, ENTITY_ID};
 
 use std::sync::{Arc, RwLock};
 

@@ -1,5 +1,7 @@
 use crate::ecs::{self, reexports::*};
 
+pub const CAMERA_ID: &str = "camera";
+
 pub struct CameraData {
     pub fov: f32,
     pub near: f32,
@@ -24,7 +26,7 @@ impl Camera {
     pub fn new(id: Arc<String>, fov: f32, near: f32, far: f32) -> Arc<Self> {
         Arc::new(Self {
             id,
-            tid: ecs::id("camera"),
+            tid: ecs::id(CAMERA_ID),
             entity: ecs::entity(None),
             data: RwLock::new(CameraData::new(fov, near, far)),
         })

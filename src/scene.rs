@@ -1,7 +1,7 @@
 use crate::{
-    components::{Camera, Light},
+    components::{Camera, Light, LIGHT_ID},
     ecs,
-    ecs::Entity,
+    ecs::{Entity, ENTITY_ID},
     Vector4,
 };
 use std::sync::{Arc, RwLock};
@@ -22,7 +22,7 @@ impl Scene {
     }
 
     fn get_lights_inner(&self, entity: Arc<Entity>, lights: &mut Option<Vec<Arc<Light>>>) {
-        let l = entity.get_type(ecs::id("light"));
+        let l = entity.get_type(ecs::id(LIGHT_ID));
 
         if let Some(l) = l {
             let mut l = (*l).clone();
@@ -36,7 +36,7 @@ impl Scene {
             }
         }
 
-        if let Some(entities) = entity.get_type::<Entity>(ecs::id("entity")) {
+        if let Some(entities) = entity.get_type::<Entity>(ecs::id(ENTITY_ID)) {
             for entity in &*entities {
                 self.get_lights_inner(entity.clone(), lights);
             }

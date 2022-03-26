@@ -1,6 +1,8 @@
 use crate::ecs::{self, reexports::*};
 use winit::event::Event;
 
+pub const EVENT_HANDLER_ID: &str = "event handler";
+
 pub trait Handler: Send + Sync {
     fn set_event_handler(&self, _: Option<Arc<EventHandler>>) {}
 
@@ -19,7 +21,7 @@ impl EventHandler {
     pub fn new<'a>(id: Arc<String>, handler: Arc<dyn Handler>) -> Arc<Self> {
         let event_handler = Arc::new(Self {
             id,
-            tid: ecs::id("event handler"),
+            tid: ecs::id(EVENT_HANDLER_ID),
             entity: ecs::entity(None),
             handler: RwLock::new(handler.clone()),
         });

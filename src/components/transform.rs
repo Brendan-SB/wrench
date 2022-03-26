@@ -3,6 +3,8 @@ use crate::{
     Vector3, Zero,
 };
 
+pub const TRANSFORM_ID: &str = "transform";
+
 pub struct TransformData {
     pub position: Vector3<f32>,
     pub rotation: Vector3<f32>,
@@ -38,7 +40,7 @@ impl Transform {
 
         Arc::new(Self {
             id,
-            tid: ecs::id("transform"),
+            tid: ecs::id(TRANSFORM_ID),
             entity: ecs::entity(None),
             data,
         })
@@ -59,7 +61,7 @@ impl Transform {
             let entity = entity.entity.read().unwrap();
 
             if let Some(entity) = &*entity {
-                if let Some(transform) = entity.get_first::<Self>(ecs::id("transform")) {
+                if let Some(transform) = entity.get_first::<Self>(ecs::id(TRANSFORM_ID)) {
                     transform.calculate_inner(data);
                 }
             }

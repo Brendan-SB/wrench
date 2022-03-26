@@ -1,6 +1,6 @@
 use crate::{
     assets::{Material, Mesh, Texture},
-    components::{Camera, Light, Transform},
+    components::{Camera, Light, Transform, TRANSFORM_ID},
     ecs::{self, reexports::*, Component, Entity},
     engine::default_engine::InitializedDefaultEngine,
     shaders::{depth, fragment, vertex},
@@ -16,6 +16,8 @@ use vulkano::{
     pipeline::{GraphicsPipeline, PipelineBindPoint},
     sampler::{BorderColor, Filter, MipmapMode, Sampler, SamplerAddressMode},
 };
+
+pub const MODEL_ID: &str = "model";
 
 pub struct ModelData {
     pub mesh: Arc<Mesh>,
@@ -62,7 +64,7 @@ impl Model {
     ) -> Arc<Self> {
         Arc::new(Self {
             id,
-            tid: ecs::id("model"),
+            tid: ecs::id(MODEL_ID),
             entity: ecs::entity(None),
             data: RwLock::new(ModelData::new(mesh, texture, material, color, shadowed)),
         })
@@ -89,8 +91,8 @@ impl Model {
 
                 if let Some(light_entity) = light_entity {
                     if let (Some(transform), Some(light_transform)) = (
-                        entity.get_first::<Transform>(ecs::id("transform")),
-                        light_entity.get_first::<Transform>(ecs::id("transform")),
+                        entity.get_first::<Transform>(ecs::id(TRANSFORM_ID)),
+                        light_entity.get_first::<Transform>(ecs::id(TRANSFORM_ID)),
                     ) {
                         let transform_data = transform.calculate();
                         let light_transform_data = light_transform.calculate();
@@ -191,8 +193,8 @@ impl Model {
 
             if let Some(camera_entity) = camera_entity {
                 if let (Some(transform), Some(camera_transform)) = (
-                    entity.get_first::<Transform>(ecs::id("transform")),
-                    camera_entity.get_first::<Transform>(ecs::id("transform")),
+                    entity.get_first::<Transform>(ecs::id(TRANSFORM_ID)),
+                    camera_entity.get_first::<Transform>(ecs::id(TRANSFORM_ID)),
                 ) {
                     let transform_data = transform.calculate();
                     let camera_transform_data = camera_transform.calculate();
@@ -247,7 +249,7 @@ impl Model {
 
                                         if let Some(light_entity) = light_entity {
                                             if let Some(light_transform) = light_entity
-                                                .get_first::<Transform>(ecs::id("transform"))
+                                                .get_first::<Transform>(ecs::id(TRANSFORM_ID))
                                             {
                                                 let light_transform_data =
                                                     light_transform.calculate();

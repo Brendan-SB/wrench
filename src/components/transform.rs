@@ -2,7 +2,6 @@ use crate::{
     ecs::{self, reexports::*},
     Vector3, Zero,
 };
-use std::sync::{Arc, Mutex};
 
 pub struct TransformData {
     pub position: Vector3<f32>,
@@ -24,8 +23,8 @@ impl TransformData {
 pub struct Transform {
     pub id: Arc<String>,
     pub tid: Arc<String>,
-    pub entity: Arc<Mutex<Option<Arc<Entity>>>>,
-    pub data: Mutex<TransformData>,
+    pub entity: Arc<RwLock<Option<Arc<Entity>>>>,
+    pub data: RwLock<TransformData>,
 }
 
 impl Transform {
@@ -35,11 +34,7 @@ impl Transform {
         rotation: Vector3<f32>,
         scale: Vector3<f32>,
     ) -> Arc<Self> {
-        let data = Mutex::new(TransformData {
-            position,
-            rotation,
-            scale,
-        });
+        let data = RwLock::new(TransformData::new(position, rotation, scale));
 
         Arc::new(Self {
             id,
@@ -51,19 +46,19 @@ impl Transform {
 
     fn calculate_inner(&self, data: &mut TransformData) {
         {
-            let d = self.data.lock().unwrap();
+            let d = self.data.read().unwrap();
 
             data.position += d.position;
             data.rotation += d.rotation;
             data.scale += d.scale;
         }
 
-        let entity = { self.entity.lock().unwrap().clone() };
+        let entity = self.entity.read().unwrap();
 
-        if let Some(entity) = entity {
-            let entity = { entity.entity.lock().unwrap().clone() };
+        if let Some(entity) = &*entity {
+            let entity = entity.entity.read().unwrap();
 
-            if let Some(entity) = entity {
+            if let Some(entity) = &*entity {
                 if let Some(transform) = entity.get_first::<Self>(ecs::id("transform")) {
                     transform.calculate_inner(data);
                 }

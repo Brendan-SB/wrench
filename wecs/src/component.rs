@@ -1,11 +1,11 @@
 use crate::Entity;
 use std::{
     any::Any,
-    sync::{Arc, Mutex},
+    sync::{Arc, RwLock},
 };
 
 pub trait Component: Send + Sync + 'static {
-    fn entity(&self) -> Arc<Mutex<Option<Arc<Entity>>>>;
+    fn entity(&self) -> Arc<RwLock<Option<Arc<Entity>>>>;
 
     fn id(&self) -> Arc<String>;
 

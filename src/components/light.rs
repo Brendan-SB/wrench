@@ -2,7 +2,6 @@ use crate::{
     ecs::{self, reexports::*},
     Vector3,
 };
-use std::sync::{Arc, Mutex};
 
 pub struct LightData {
     pub color: Vector3<f32>,
@@ -37,8 +36,8 @@ impl LightData {
 pub struct Light {
     pub id: Arc<String>,
     pub tid: Arc<String>,
-    pub entity: Arc<Mutex<Option<Arc<Entity>>>>,
-    pub data: Mutex<LightData>,
+    pub entity: Arc<RwLock<Option<Arc<Entity>>>>,
+    pub data: RwLock<LightData>,
 }
 
 impl Light {
@@ -55,7 +54,7 @@ impl Light {
             id,
             tid: ecs::id("light"),
             entity: ecs::entity(None),
-            data: Mutex::new(LightData::new(
+            data: RwLock::new(LightData::new(
                 color,
                 directional,
                 intensity,

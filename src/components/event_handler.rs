@@ -11,8 +11,8 @@ pub trait Handler: Send + Sync {
 pub struct EventHandler {
     pub id: Arc<String>,
     pub tid: Arc<String>,
-    pub entity: Arc<Mutex<Option<Arc<Entity>>>>,
-    pub handler: Mutex<Arc<dyn Handler>>,
+    pub entity: Arc<RwLock<Option<Arc<Entity>>>>,
+    pub handler: RwLock<Arc<dyn Handler>>,
 }
 
 impl EventHandler {
@@ -21,7 +21,7 @@ impl EventHandler {
             id,
             tid: ecs::id("event handler"),
             entity: ecs::entity(None),
-            handler: Mutex::new(handler.clone()),
+            handler: RwLock::new(handler.clone()),
         });
 
         handler.set_event_handler(Some(event_handler.clone()));
@@ -30,6 +30,6 @@ impl EventHandler {
     }
 
     pub fn handle<'a>(&self, event: &Event<'a, ()>) {
-        self.handler.lock().unwrap().handle(event);
+        self.handler.read().unwrap().handle(event);
     }
 }

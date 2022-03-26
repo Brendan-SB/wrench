@@ -6,7 +6,6 @@ use crate::{
     shaders::{depth, fragment, vertex},
     EuclideanSpace, Matrix4, Point3, Rad, Vector3, Vector4, Zero,
 };
-use std::sync::{Arc, Mutex};
 use vulkano::{
     buffer::TypedBufferAccess,
     command_buffer::PrimaryAutoCommandBuffer,
@@ -48,8 +47,8 @@ impl ModelData {
 pub struct Model {
     pub id: Arc<String>,
     pub tid: Arc<String>,
-    pub entity: Arc<Mutex<Option<Arc<Entity>>>>,
-    pub data: Mutex<ModelData>,
+    pub entity: Arc<RwLock<Option<Arc<Entity>>>>,
+    pub data: RwLock<ModelData>,
 }
 
 impl Model {
@@ -65,7 +64,7 @@ impl Model {
             id,
             tid: ecs::id("model"),
             entity: ecs::entity(None),
-            data: Mutex::new(ModelData::new(mesh, texture, material, color, shadowed)),
+            data: RwLock::new(ModelData::new(mesh, texture, material, color, shadowed)),
         })
     }
 
@@ -80,13 +79,13 @@ impl Model {
         >,
         pipeline: &GraphicsPipeline,
     ) {
-        let data = self.data.lock().unwrap();
+        let data = self.data.read().unwrap();
 
         if data.shadowed {
-            let entity = { self.entity.lock().unwrap().clone() };
+            let entity = { self.entity.read().unwrap().clone() };
 
             if let Some(entity) = entity {
-                let light_entity = { light.entity.lock().unwrap().clone() };
+                let light_entity = { light.entity.read().unwrap().clone() };
 
                 if let Some(light_entity) = light_entity {
                     if let (Some(transform), Some(light_transform)) = (
@@ -100,7 +99,7 @@ impl Model {
                                 * Matrix4::from_angle_y(Rad(transform_data.rotation.y))
                                 * Matrix4::from_angle_z(Rad(transform_data.rotation.z));
                             let proj = {
-                                let camera_data = camera.data.lock().unwrap();
+                                let camera_data = camera.data.read().unwrap();
 
                                 cgmath::ortho(
                                     -camera_data.far,
@@ -184,11 +183,11 @@ impl Model {
         shadow_buffer: Arc<ImageView<Arc<AttachmentImage>>>,
         dimensions: &[u32; 2],
     ) {
-        let data = self.data.lock().unwrap();
-        let entity = { self.entity.lock().unwrap().clone() };
+        let data = self.data.read().unwrap();
+        let entity = { self.entity.read().unwrap().clone() };
 
         if let Some(entity) = entity {
-            let camera_entity = { camera.entity.lock().unwrap().clone() };
+            let camera_entity = { camera.entity.read().unwrap().clone() };
 
             if let Some(camera_entity) = camera_entity {
                 if let (Some(transform), Some(camera_transform)) = (
@@ -203,7 +202,7 @@ impl Model {
                             * Matrix4::from_angle_z(Rad(transform_data.rotation.z));
                         let aspect_ratio = dimensions[0] as f32 / dimensions[1] as f32;
                         let proj = {
-                            let camera_data = camera.data.lock().unwrap();
+                            let camera_data = camera.data.read().unwrap();
 
                             cgmath::perspective(
                                 Rad(camera_data.fov),
@@ -244,7 +243,7 @@ impl Model {
                             match lights {
                                 Some(lights) => {
                                     for (i, light) in lights.iter().enumerate() {
-                                        let light_entity = { light.entity.lock().unwrap().clone() };
+                                        let light_entity = { light.entity.read().unwrap().clone() };
 
                                         if let Some(light_entity) = light_entity {
                                             if let Some(light_transform) = light_entity
@@ -262,7 +261,7 @@ impl Model {
                                                 )) * Matrix4::from_angle_z(Rad(
                                                     light_transform_data.rotation.z,
                                                 ));
-                                                let light_data = light.data.lock().unwrap();
+                                                let light_data = light.data.read().unwrap();
 
                                                 initialized_engine.lights_array[i] =
                                                     fragment::ty::Light {

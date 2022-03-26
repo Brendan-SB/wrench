@@ -9,7 +9,7 @@ pub fn component(input: TokenStream) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
     let expanded = quote! {
         impl #impl_generics Component for #name #ty_generics #where_clause {
-            fn entity(&self) -> Arc<Mutex<Option<Arc<Entity>>>> {
+            fn entity(&self) -> Arc<RwLock<Option<Arc<Entity>>>> {
                 self.entity.clone()
             }
 

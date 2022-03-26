@@ -8,7 +8,7 @@ use crate::{
     shaders::{depth, fragment, vertex, Shaders},
     Matrix4, SquareMatrix, Vector3, Zero,
 };
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 use vulkano::{
     buffer::{cpu_pool::CpuBufferPool, BufferUsage},
     command_buffer::{
@@ -46,6 +46,22 @@ pub struct InitializedDefaultEngine {
     pub depth_uniform_buffer: CpuBufferPool<depth::vertex::ty::Data>,
 }
 
+impl InitializedDefaultEngine {
+    pub fn new(
+        lights_array: [fragment::ty::Light; 1024],
+        uniform_buffer: CpuBufferPool<vertex::ty::Data>,
+        frag_uniform_buffer: CpuBufferPool<fragment::ty::Data>,
+        depth_uniform_buffer: CpuBufferPool<depth::vertex::ty::Data>,
+    ) -> Self {
+        Self {
+            lights_array,
+            uniform_buffer,
+            frag_uniform_buffer,
+            depth_uniform_buffer,
+        }
+    }
+}
+
 pub struct DefaultEngine {
     pub physical_index: usize,
     pub sample_count: SampleCount,
@@ -56,11 +72,11 @@ pub struct DefaultEngine {
     pub shaders: Arc<Shaders>,
     pub depth_render_pass: Arc<RenderPass>,
     pub render_pass: Arc<RenderPass>,
-    pub depth_pipeline: Mutex<Arc<GraphicsPipeline>>,
-    pub pipeline: Mutex<Arc<GraphicsPipeline>>,
-    pub swapchain: Mutex<Arc<Swapchain<Window>>>,
-    pub images: Mutex<Vec<Arc<ImageView<Arc<SwapchainImage<Window>>>>>>,
-    pub scene: Mutex<Arc<Scene>>,
+    pub depth_pipeline: RwLock<Arc<GraphicsPipeline>>,
+    pub pipeline: RwLock<Arc<GraphicsPipeline>>,
+    pub swapchain: RwLock<Arc<Swapchain<Window>>>,
+    pub images: RwLock<Vec<Arc<ImageView<Arc<SwapchainImage<Window>>>>>>,
+    pub scene: RwLock<Arc<Scene>>,
 }
 
 impl DefaultEngine {
@@ -180,11 +196,11 @@ impl DefaultEngine {
             shaders,
             depth_render_pass,
             render_pass,
-            depth_pipeline: Mutex::new(depth_pipeline),
-            pipeline: Mutex::new(pipeline),
-            swapchain: Mutex::new(swapchain),
-            images: Mutex::new(images),
-            scene: Mutex::new(scene),
+            depth_pipeline: RwLock::new(depth_pipeline),
+            pipeline: RwLock::new(pipeline),
+            swapchain: RwLock::new(swapchain),
+            images: RwLock::new(images),
+            scene: RwLock::new(scene),
         })
     }
 
@@ -414,7 +430,7 @@ impl DefaultEngine {
 
 impl Engine for DefaultEngine {
     fn init(self) -> Result<(), Error> {
-        self.scene.lock().unwrap().root.init();
+        self.scene.read().unwrap().root.init();
 
         let uniform_buffer =
             CpuBufferPool::<vertex::ty::Data>::new(self.device.clone(), BufferUsage::all());
@@ -432,19 +448,19 @@ impl Engine for DefaultEngine {
             intensity: 0.0,
             attenuation: 0.0,
         }; 1024];
-        let mut initialized_engine = InitializedDefaultEngine {
+        let mut initialized_engine = InitializedDefaultEngine::new(
+            lights_array,
             uniform_buffer,
             frag_uniform_buffer,
             depth_uniform_buffer,
-            lights_array,
-        };
+        );
 
         let mut recreate_swapchain = false;
         let mut previous_frame_end = Some(sync::now(self.device.clone()).boxed());
 
         self.event_loop.run(move |event, _, control_flow| {
             {
-                let scene = self.scene.lock().unwrap();
+                let scene = self.scene.read().unwrap();
 
                 Self::handle_events(scene.root.clone(), &event);
             }
@@ -466,11 +482,11 @@ impl Engine for DefaultEngine {
                     previous_frame_end.as_mut().unwrap().cleanup_finished();
 
                     let dimensions: [u32; 2] = self.surface.window().inner_size().into();
-                    let mut depth_pipeline = self.depth_pipeline.lock().unwrap();
-                    let mut pipeline = self.pipeline.lock().unwrap();
-                    let mut swapchain = self.swapchain.lock().unwrap();
-                    let mut images = self.images.lock().unwrap();
-                    let scene = self.scene.lock().unwrap();
+                    let mut depth_pipeline = self.depth_pipeline.write().unwrap();
+                    let mut pipeline = self.pipeline.write().unwrap();
+                    let mut swapchain = self.swapchain.write().unwrap();
+                    let mut images = self.images.write().unwrap();
+                    let scene = self.scene.read().unwrap();
 
                     scene.root.update();
 
@@ -522,8 +538,8 @@ impl Engine for DefaultEngine {
 
                     let lights = scene.get_lights();
                     let entities = scene.root.get_type::<Entity>(ecs::id("entity"));
-                    let camera = { scene.camera.lock().unwrap().clone() };
-                    let bg: [f32; 4] = (*scene.bg.lock().unwrap()).into();
+                    let camera = { scene.camera.read().unwrap().clone() };
+                    let bg: [f32; 4] = (*scene.bg.read().unwrap()).into();
                     let (buffers, depth_framebuffer, framebuffer) = Self::create_framebuffers(
                         self.device.clone(),
                         swapchain.clone(),

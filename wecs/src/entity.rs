@@ -1,15 +1,15 @@
 use crate::{self as ecs, Component};
 use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
     any::Any,
+    collections::HashMap,
+    sync::{Arc, RwLock},
 };
 
 pub struct Entity {
     pub id: Arc<String>,
     pub tid: Arc<String>,
-    pub entity: Arc<Mutex<Option<Arc<Entity>>>>,
-    components: Arc<Mutex<HashMap<Arc<String>, Arc<Mutex<Vec<Arc<dyn Component>>>>>>>,
+    pub entity: Arc<RwLock<Option<Arc<Entity>>>>,
+    components: Arc<RwLock<HashMap<Arc<String>, Arc<RwLock<Vec<Arc<dyn Component>>>>>>>,
 }
 
 impl Entity {
@@ -18,7 +18,7 @@ impl Entity {
             id,
             tid: ecs::id("entity"),
             entity: ecs::entity(None),
-            components: Arc::new(Mutex::new(HashMap::new())),
+            components: Arc::new(RwLock::new(HashMap::new())),
         })
     }
 
@@ -27,20 +27,20 @@ impl Entity {
         C: Component,
     {
         {
-            let entity = component.entity().lock().unwrap().clone();
+            let entity = component.entity().read().unwrap().clone();
 
             if let Some(entity) = &entity {
                 entity.remove(&component);
             }
         }
 
-        *component.entity().lock().unwrap() = Some(self.clone());
+        *component.entity().write().unwrap() = Some(self.clone());
 
-        let mut components = self.components.lock().unwrap();
+        let mut components = self.components.write().unwrap();
 
         match components.get(&component.tid()) {
             Some(components) => {
-                let mut components = components.lock().unwrap();
+                let mut components = components.write().unwrap();
 
                 components.push(component.clone());
             }
@@ -48,7 +48,7 @@ impl Entity {
             None => {
                 components.insert(
                     component.tid(),
-                    Arc::new(Mutex::new(vec![component.clone()])),
+                    Arc::new(RwLock::new(vec![component.clone()])),
                 );
             }
         }
@@ -56,53 +56,38 @@ impl Entity {
 
     pub fn add_all<C>(self: &Arc<Self>, components: &[&Arc<C>])
     where
-        C: Component, {
-            components.into_iter().for_each(|c| {
-                self.add(c);
-            });
-        }
+        C: Component,
+    {
+        components.into_iter().for_each(|c| {
+            self.add(c);
+        });
+    }
 
     pub fn components(&self) -> HashMap<Arc<String>, Vec<Arc<dyn Component>>> {
         self.components
-            .lock()
+            .read()
             .unwrap()
             .iter()
-            .map(|(k, v)| (k.clone(), v.lock().unwrap().clone()))
+            .map(|(k, v)| (k.clone(), v.read().unwrap().clone()))
             .collect()
     }
 
-    pub fn get_type<C>(&self, tid: Arc<String>) -> Option<Arc<Vec<Arc<C>>>>
+    pub fn get<C>(&self, tid: Arc<String>, id: Arc<String>) -> Option<Arc<C>>
     where
         C: Component,
     {
-        match self.components.lock().unwrap().get(&tid) {
-            Some(components) => Some(Arc::new(
-                components
-                    .lock()
-                    .unwrap()
-                    .iter()
-                    .map(|c| c.clone().as_any().downcast::<C>().unwrap())
-                    .collect(),
-            )),
+        match self.components.read().unwrap().get(&tid) {
+            Some(components) => match components
+                .read()
+                .unwrap()
+                .iter()
+                .filter(|c| *c.id() == *id)
+                .next()
+            {
+                Some(component) => Some(component.clone().as_any().downcast::<C>().unwrap()),
 
-            None => None,
-        }
-    }
-
-    pub fn get<C>(&self, tid: Arc<String>, id: Arc<String>) -> Option<Arc<Vec<Arc<C>>>>
-    where
-        C: Component,
-    {
-        match self.components.lock().unwrap().get(&tid) {
-            Some(components) => Some(Arc::new(
-                components
-                    .lock()
-                    .unwrap()
-                    .iter()
-                    .filter(|c| *c.id() == *id)
-                    .map(|c| c.clone().as_any().downcast::<C>().unwrap())
-                    .collect(),
-            )),
+                None => None,
+            },
 
             None => None,
         }
@@ -123,14 +108,33 @@ impl Entity {
         }
     }
 
+    pub fn get_type<C>(&self, tid: Arc<String>) -> Option<Arc<Vec<Arc<C>>>>
+    where
+        C: Component,
+    {
+        match self.components.read().unwrap().get(&tid) {
+            Some(components) => Some(Arc::new(
+                components
+                    .read()
+                    .unwrap()
+                    .iter()
+                    .map(|c| c.clone().as_any().downcast::<C>().unwrap())
+                    .collect(),
+            )),
+
+            None => None,
+        }
+    }
+
     pub fn remove<C>(&self, component: &Arc<C>)
-    where C: Component + ?Sized {
+    where
+        C: Component + ?Sized,
+    {
         self.remove_by_id(component.tid(), component.id());
     }
 
-
-    fn remove_from_target(target: &Mutex<Vec<Arc<dyn Component>>>, id: Arc<String>) -> bool {
-        let mut target = target.lock().unwrap();
+    fn remove_from_target(target: &RwLock<Vec<Arc<dyn Component>>>, id: Arc<String>) -> bool {
+        let mut target = target.write().unwrap();
 
         target
             .clone()
@@ -140,14 +144,14 @@ impl Entity {
             .for_each(|(i, v)| {
                 v.remove();
                 target.remove(i);
-                *v.entity().lock().unwrap() = None;
+                *v.entity().write().unwrap() = None;
             });
 
         target.is_empty()
     }
 
     fn remove_by_id(&self, tid: Arc<String>, id: Arc<String>) {
-        let mut components = self.components.lock().unwrap();
+        let mut components = self.components.write().unwrap();
 
         if let Some(target) = components.get(&tid) {
             let target_is_empty = Self::remove_from_target(target, id);
@@ -160,15 +164,28 @@ impl Entity {
 
     pub fn remove_all<C>(self: &Arc<Self>, components: &[&Arc<C>])
     where
-        C: Component, {
-            components.into_iter().for_each(|c| {
-                self.remove(c);
-            });
-        }
+        C: Component,
+    {
+        components.into_iter().for_each(|c| {
+            self.remove(c);
+        });
+    }
+
+    pub fn get_from(entity: &Arc<Entity>, id: Arc<String>) -> Option<Arc<Self>> {
+        entity.get::<Entity>(ecs::id("entity"), id)
+    }
+
+    pub fn get_first_from(entity: &Arc<Entity>) -> Option<Arc<Self>> {
+        entity.get_first::<Entity>(ecs::id("entity"))
+    }
+
+    pub fn get_type_from(entity: &Arc<Entity>) -> Option<Arc<Vec<Arc<Self>>>> {
+        entity.get_type::<Entity>(ecs::id("entity"))
+    }
 }
 
 impl Component for Entity {
-    fn entity(&self) -> Arc<Mutex<Option<Arc<Entity>>>> {
+    fn entity(&self) -> Arc<RwLock<Option<Arc<Entity>>>> {
         self.entity.clone()
     }
 
@@ -185,14 +202,10 @@ impl Component for Entity {
     }
 
     fn init(&self) {
-        let components = {
-            self.components.lock().unwrap().clone()
-        };
+        let components = { self.components.read().unwrap().clone() };
 
         for (_, v) in components {
-            let v = {
-                v.lock().unwrap().clone()
-            };
+            let v = { v.read().unwrap().clone() };
 
             for component in v {
                 component.init();
@@ -201,14 +214,10 @@ impl Component for Entity {
     }
 
     fn update(&self) {
-        let components = {
-            self.components.lock().unwrap().clone()
-        };
+        let components = { self.components.read().unwrap().clone() };
 
         for (_, v) in components {
-            let v = {
-                v.lock().unwrap().clone()
-            };
+            let v = { v.read().unwrap().clone() };
 
             for component in v {
                 component.update();
@@ -217,14 +226,10 @@ impl Component for Entity {
     }
 
     fn remove(&self) {
-        let components = {
-            self.components.lock().unwrap().clone()
-        };
+        let components = { self.components.read().unwrap().clone() };
 
         for (_, v) in components {
-            let v = {
-                v.lock().unwrap().clone()
-            };
+            let v = { v.read().unwrap().clone() };
 
             for component in v {
                 self.remove(&component);

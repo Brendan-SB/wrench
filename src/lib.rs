@@ -20,7 +20,7 @@ pub mod ecs {
         pub use super::{derive::Component, Component, Entity};
         pub use std::{
             any::Any,
-            sync::{Arc, Mutex},
+            sync::{Arc, RwLock},
         };
     }
 }

@@ -239,8 +239,6 @@ impl DefaultEngine {
                     dimensions: [dimensions[0] as f32, dimensions[1] as f32],
                     depth_range: 1.0..0.0,
                 }])
-                .cull_mode_front()
-                .blend_alpha_blending()
                 .build(device.clone())?,
         );
         let pipeline = Arc::new(

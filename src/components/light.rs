@@ -7,29 +7,29 @@ pub const LIGHT_ID: &str = "light";
 
 pub struct LightData {
     pub color: Vector3<f32>,
-    pub directional: bool,
     pub intensity: f32,
     pub cutoff: f32,
     pub outer_cutoff: f32,
     pub attenuation: f32,
+    pub directional: bool,
 }
 
 impl LightData {
     pub fn new(
         color: Vector3<f32>,
-        directional: bool,
         intensity: f32,
         cutoff: f32,
         outer_cutoff: f32,
         attenuation: f32,
+        directional: bool,
     ) -> Self {
         Self {
             color,
-            directional,
             intensity,
             cutoff,
             outer_cutoff,
             attenuation,
+            directional,
         }
     }
 }
@@ -46,11 +46,11 @@ impl Light {
     pub fn new(
         id: Arc<String>,
         color: Vector3<f32>,
-        directional: bool,
         intensity: f32,
         cutoff: f32,
         outer_cutoff: f32,
         attenuation: f32,
+        directional: bool,
     ) -> Arc<Self> {
         Arc::new(Self {
             id,
@@ -58,11 +58,11 @@ impl Light {
             entity: ecs::entity(None),
             data: RwLock::new(LightData::new(
                 color,
-                directional,
                 intensity,
                 cutoff,
                 outer_cutoff,
                 attenuation,
+                directional,
             )),
         })
     }

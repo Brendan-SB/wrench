@@ -12,7 +12,8 @@ layout(set = 0, binding = 0) uniform Data {
 } uniforms;
 
 void main() {
-    mat4 world_view = uniforms.cam_transform * inverse(uniforms.transform);
+    mat4 global_transform = inverse(uniforms.transform);
+    mat4 world_view = uniforms.cam_transform * global_transform;
 
     gl_Position = uniforms.proj * world_view * uniforms.scale * vec4(position, 1.0);
 }

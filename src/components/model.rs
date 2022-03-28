@@ -132,7 +132,7 @@ impl Model {
                             let uniform_data = depth::vertex::ty::Data {
                                 proj: proj.into(),
                                 scale: scale.into(),
-                                transform: (rotation * look_at * translation).into(),
+                                transform: (look_at * rotation * translation).into(),
                                 cam_transform: (light_rotation * light_translation).into(),
                             };
 
@@ -295,13 +295,29 @@ impl Model {
                             }
                         };
 
-                        let uniform_data = fragment::ty::Data {
-                            color: data.color.into(),
-                            ambient: data.material.ambient,
-                            diff_strength: data.material.diff_strength,
-                            spec_strength: data.material.spec_strength,
-                            spec_power: data.material.spec_power,
-                            lights,
+                        let uniform_data = {
+                            let light_proj = {
+                                let camera_data = camera.data.read().unwrap();
+
+                                cgmath::ortho(
+                                    -camera_data.far,
+                                    camera_data.far,
+                                    -camera_data.far,
+                                    camera_data.far,
+                                    -camera_data.far,
+                                    camera_data.far,
+                                )
+                            };
+
+                            fragment::ty::Data {
+                                light_proj: light_proj.into(),
+                                color: data.color.into(),
+                                ambient: data.material.ambient,
+                                diff_strength: data.material.diff_strength,
+                                spec_strength: data.material.spec_strength,
+                                spec_power: data.material.spec_power,
+                                lights,
+                            }
                         };
 
                         Arc::new(

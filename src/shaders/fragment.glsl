@@ -26,7 +26,6 @@ layout(location = 3) in mat3 global_rotation;
 layout(location = 0) out vec4 f_color;
 
 layout(set = 1, binding = 0) uniform sampler2D tex;
-layout(set = 1, binding = 1) uniform sampler2D shadow_buffer;
 
 layout(set = 0, binding = 1) uniform Data {
   mat4 light_proj;
@@ -38,25 +37,11 @@ layout(set = 0, binding = 1) uniform Data {
     LightArray lights;
 } uniforms;
 
-float shadow_calculations(Light light) {
-    vec4 pos_light_space = uniforms.light_proj * inverse(light.position) * f_pos;
-
-    vec3 shadow_coords = pos_light_space.xyz / pos_light_space.w;
-
-    float closest_depth = texture(shadow_buffer, shadow_coords.xy).z;
-    float current_depth = shadow_coords.z;
-    float shadow = current_depth > closest_depth ? 0.0 : 1.0;
-
-    return shadow;
-}
-
 vec4 light_calculations(vec3 norm) {
     vec4 brightness = vec4(uniforms.ambient);
 
     for (uint i = 0; i < uniforms.lights.len; i++) {
         Light light = uniforms.lights.array[i];
-
-        float shadow = shadow_calculations(light);
 
         vec3 f_pos_dif = vec3((-(light.position * vec4(vec3(0.0), 1.0)) - f_pos).xyz);
         vec3 light_dir = normalize(f_pos_dif);
@@ -83,7 +68,7 @@ vec4 light_calculations(vec3 norm) {
         float diff = max(dot(norm, light_dir), 0.0) * uniforms.diff_strength;
         float spec = pow(max(dot(view_dir, reflect_dir), 0.0), uniforms.spec_power) * uniforms.spec_strength;
 
-        brightness += shadow * (diff + spec) * light.intensity * vec4(light.color, 1.0) * attenuation * edge_softness;
+        brightness += (diff + spec) * light.intensity * vec4(light.color, 1.0) * attenuation * edge_softness;
     }
 
     return brightness;

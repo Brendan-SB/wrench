@@ -440,6 +440,7 @@ impl Engine for DefaultEngine {
                     .unwrap();
 
                     builder
+                        .bind_pipeline_graphics(pipeline.clone())
                         .begin_render_pass(
                             framebuffer.clone(),
                             SubpassContents::Inline,

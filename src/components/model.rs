@@ -124,15 +124,10 @@ impl Model {
                                 transform_data.scale.y,
                                 transform_data.scale.z,
                             );
-                            let look_at = Matrix4::look_at_lh(
-                                Point3::from_vec(light_transform_data.position),
-                                Point3::from_vec(Vector3::zero()),
-                                Vector3::new(0.0, 1.0, 0.0),
-                            );
                             let uniform_data = depth::vertex::ty::Data {
                                 proj: proj.into(),
                                 scale: scale.into(),
-                                transform: (look_at * rotation * translation).into(),
+                                transform: (rotation * translation).into(),
                                 cam_transform: (light_rotation * light_translation).into(),
                             };
 

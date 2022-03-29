@@ -29,7 +29,7 @@ layout(set = 1, binding = 0) uniform sampler2D tex;
 layout(set = 1, binding = 1) uniform sampler2D shadow_buffer;
 
 layout(set = 0, binding = 1) uniform Data {
-  mat4 light_proj;
+    mat4 light_proj;
     vec4 color;
     float ambient;
     float diff_strength;
@@ -39,13 +39,13 @@ layout(set = 0, binding = 1) uniform Data {
 } uniforms;
 
 float shadow_calculations(Light light) {
-    vec4 pos_light_space = uniforms.light_proj * inverse(light.position) * f_pos;
+    vec4 pos_light_space = uniforms.light_proj * (light.rotation * light.position) * f_pos;
 
-    vec3 shadow_coords = pos_light_space.xyz / pos_light_space.w;
+    vec3 shadow_coords = pos_light_space.xyz / pos_light_space.w * 0.5 + 0.5;
 
     float closest_depth = texture(shadow_buffer, shadow_coords.xy).z;
     float current_depth = shadow_coords.z;
-    float shadow = current_depth > closest_depth ? 0.0 : 1.0;
+    float shadow = current_depth > closest_depth ? 1.0 : 0.0;
 
     return shadow;
 }

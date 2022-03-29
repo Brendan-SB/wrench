@@ -18,11 +18,10 @@ layout(set = 0, binding = 0) uniform Data {
 
 void main() {
     mat4 global_transform = inverse(uniforms.transform);
-    mat4 world_view = uniforms.cam_transform * global_transform;
 
     v_normal = normal;
     tex_coords = uv;
     f_pos = global_transform * uniforms.scale * vec4(position, 1.0);
     g_r = mat3(global_transform);
-    gl_Position = uniforms.proj * world_view * uniforms.scale * vec4(position, 1.0);
+    gl_Position = uniforms.proj * uniforms.cam_transform * f_pos;
 }

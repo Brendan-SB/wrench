@@ -303,10 +303,9 @@ impl DefaultEngine {
                 Format::D16_UNORM,
                 usage,
             )?)?;
-            let shadow_dimensions = [dimensions[0] * 2, dimensions[1] * 2];
             let shadow = ImageView::new(AttachmentImage::sampled_input_attachment(
                 device.clone(),
-                shadow_dimensions,
+                *dimensions,
                 swapchain.format(),
             )?)?;
 

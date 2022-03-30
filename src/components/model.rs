@@ -3,18 +3,15 @@ use crate::{
     components::{Camera, Light, Transform, TRANSFORM_ID},
     ecs::{self, reexports::*, Component, Entity},
     engine::default_engine::InitializedDefaultEngine,
-    shaders::{depth, fragment, vertex},
-    EuclideanSpace, Matrix4, Point3, Rad, Vector3, Vector4, Zero,
+    shaders::{fragment, vertex},
+    Matrix4, Rad, Vector4,
 };
 use vulkano::{
     buffer::TypedBufferAccess,
     command_buffer::PrimaryAutoCommandBuffer,
     command_buffer::{pool::standard::StandardCommandPoolBuilder, AutoCommandBufferBuilder},
     descriptor_set::persistent::PersistentDescriptorSet,
-    device::Device,
-    image::{view::ImageView, AttachmentImage},
     pipeline::{GraphicsPipeline, PipelineBindPoint},
-    sampler::{BorderColor, Filter, MipmapMode, Sampler, SamplerAddressMode},
 };
 
 pub const MODEL_ID: &str = "model";
@@ -165,19 +162,17 @@ impl Model {
             }
         }
     }
-
+  
     pub fn draw(
         &self,
         initialized_engine: &mut InitializedDefaultEngine,
         camera: Arc<Camera>,
-        device: Arc<Device>,
         builder: &mut AutoCommandBufferBuilder<
             PrimaryAutoCommandBuffer,
             StandardCommandPoolBuilder,
         >,
         pipeline: &GraphicsPipeline,
         lights: &Option<Vec<Arc<Light>>>,
-        shadow_buffer: Arc<ImageView<Arc<AttachmentImage>>>,
         dimensions: &[u32; 2],
     ) {
         let data = self.data.read().unwrap();
@@ -335,25 +330,9 @@ impl Model {
                     let set_layout = descriptor_set_layouts.get(1).unwrap();
                     let set = Arc::new(set_builder.build().unwrap());
                     let mut set_builder = PersistentDescriptorSet::start(set_layout.clone());
-                    let sampler = Sampler::new(
-                        device.clone(),
-                        Filter::Linear,
-                        Filter::Linear,
-                        MipmapMode::Nearest,
-                        SamplerAddressMode::ClampToBorder(BorderColor::FloatOpaqueBlack),
-                        SamplerAddressMode::ClampToBorder(BorderColor::FloatOpaqueBlack),
-                        SamplerAddressMode::ClampToBorder(BorderColor::FloatOpaqueBlack),
-                        0.0,
-                        1.0,
-                        1.0,
-                        1.0,
-                    )
-                    .unwrap();
 
                     set_builder
                         .add_sampled_image(data.texture.image.clone(), data.texture.sampler.clone())
-                        .unwrap()
-                        .add_sampled_image(shadow_buffer, sampler)
                         .unwrap();
 
                     let image_set = Arc::new(set_builder.build().unwrap());
